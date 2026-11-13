@@ -38,7 +38,7 @@ android {
                 storeFile = file(store)
                 storePassword = signingValue("storePassword", "VTM_KEYSTORE_PASSWORD")
                 keyAlias = signingValue("keyAlias", "VTM_KEY_ALIAS")
-                keyPassword = signingValue("keyPassword", "VTM_KEY_PASSWORD")
+                keyPassword = signingValue("storePassword", "VTM_KEY_PASSWORD")
             }
         }
     }
