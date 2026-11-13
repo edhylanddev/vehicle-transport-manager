@@ -41,6 +41,25 @@ jobs:
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/vtm-release.jks"
           echo "VTM_KEYSTORE_FILE=$RUNNER_TEMP/vtm-release.jks" >> "$GITHUB_ENV"
 
+      - name: Check signing key
+        if: env.KEYSTORE_B64 != ''
+        env:
+          PW: ${{ secrets.VTM_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.VTM_KEY_ALIAS }}
+        run: |
+          echo "Keystore file fingerprint (first 16 of sha256): $(sha256sum "$VTM_KEYSTORE_FILE" | cut -c1-16)"
+          echo "Password length: ${#PW}   Alias length: ${#ALIAS}"
+          if keytool -list -keystore "$VTM_KEYSTORE_FILE" -storepass "$PW" >/dev/null 2>&1; then
+            echo "OK: password opens the keystore"
+          else
+            echo "PROBLEM: password does NOT open the keystore"
+          fi
+          if keytool -certreq -keystore "$VTM_KEYSTORE_FILE" -storepass "$PW" -keypass "$PW" -alias "$ALIAS" >/dev/null 2>&1; then
+            echo "OK: password unlocks the key"
+          else
+            echo "PROBLEM: password does NOT unlock the key"
+          fi
+
       - name: Build APKs
         env:
           VTM_KEYSTORE_PASSWORD: ${{ secrets.VTM_KEYSTORE_PASSWORD }}
