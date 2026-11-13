@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field %}
+{% block title %}{{ c.name if c.id else 'New customer' }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <a class="btn btn-link px-0 me-2" href="{{ url_for('customers.detail', customer_id=c.id) if c.id else url_for('customers.index') }}"><i class="bi bi-chevron-left"></i></a>
+  <h1 class="page-title">{{ 'Edit ' ~ c.name if c.id else 'New customer' }}</h1>
+</div>
+<div class="card" style="max-width:720px"><div class="card-body">
+<form method="post" class="row g-3">
+  {{ csrf() }}
+  {{ field('name', 'Company or person name', c.name, col='col-md-8', required=true) }}
+  <div class="col-md-4"><label class="form-label">Type</label>
+    <select class="form-select" name="kind">{% for k in kinds %}<option value="{{ k }}" {{ 'selected' if k == c.kind }}>{{ k|title }}</option>{% endfor %}</select></div>
+  {{ field('contact_name', 'Contact person', c.contact_name, col='col-md-6') }}
+  {{ field('phone', 'Phone', c.phone, type='tel', col='col-md-6') }}
+  {{ field('email', 'Email (for invoices)', c.email, type='email', col='col-md-6') }}
+  {{ field('address', 'Billing address', c.address, col='col-md-6') }}
+  <div class="col-12"><label class="form-label">Notes</label><textarea class="form-control" name="notes" rows="3">{{ c.notes or '' }}</textarea></div>
+  <div class="col-12"><button class="btn btn-primary px-4">Save</button></div>
+</form>
+</div></div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "loads/_print_base.html" %}
+{% block title %}BOL {{ load.number }} · {{ company.name }}{% endblock %}
+{% block sheet %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div><h1 class="mb-0">{{ company.name }}</h1>
+    <div class="muted">{{ company.phone or '' }}{% if company.mc_number %} · {{ company.mc_number }}{% endif %}{% if company.dot_number %} · USDOT {{ company.dot_number }}{% endif %}</div></div>
+  <div class="text-end"><div class="fs-5 fw-bold">BILL OF LADING &amp; CONDITION REPORT</div>
+    <div>Load <b>#{{ load.number }}</b>{% if load.reference %} · Ref {{ load.reference }}{% endif %}</div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  {% for side, label in [('pickup', 'Origin'), ('delivery', 'Destination')] %}
+  <div class="col-6"><div class="box"><h6>{{ label }}</h6>
+    <div class="fw-semibold">{{ load[side ~ '_name'] or '' }}</div>
+    <div>{{ load[side ~ '_address'] or '' }}</div>
+    <div>{{ [load[side ~ '_city'], load[side ~ '_state']]|select|join(', ') }} {{ load[side ~ '_zip'] or '' }}</div>
+    <div class="muted">{{ load[side ~ '_contact'] or '' }} {{ load[side ~ '_phone'] or '' }}</div>
+  </div></div>
+  {% endfor %}
+</div>
+
+<table class="table table-sm">
+  <thead><tr><th>#</th><th>Vehicle</th><th>Color</th><th>VIN</th><th>Runs</th></tr></thead>
+  <tbody>{% for v in load.vehicles %}
+    <tr><td>{{ loop.index }}</td><td>{{ v.title }}</td><td>{{ v.color or '' }}</td><td class="font-monospace">{{ v.vin or '' }}</td><td>{{ 'Yes' if v.operable else 'No' }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+<p class="muted">Carrier driver: {{ load.driver.name if load.driver else '—' }}{% if load.truck %} · Truck {{ load.truck.unit }}{% endif %}</p>
+
+{% for kind, label in [('pickup', 'Pickup'), ('delivery', 'Delivery')] %}
+  {% set insp = load.inspection(kind) %}
+  <h5 class="mt-4">{{ label }} inspection</h5>
+  {% if insp %}
+    <div class="row g-3 mb-2">
+      <div class="col-7"><div class="box"><h6>Condition / damage notes</h6>
+        <div style="white-space:pre-wrap">{{ insp.damage_notes or 'No damage noted.' }}</div>
+        {% if insp.odometer %}<div class="muted mt-2">Odometer: {{ insp.odometer }}</div>{% endif %}
+        <div class="muted mt-1">{{ insp.created_at|d }}{% if insp.lat %} · GPS {{ '%.5f'|format(insp.lat) }}, {{ '%.5f'|format(insp.lng) }}{% endif %}</div></div></div>
+      <div class="col-5"><div class="box"><h6>Signed by {{ 'shipper' if kind == 'pickup' else 'receiver' }}</h6>
+        {% if insp.signature_file %}<img class="sig" src="{{ url_for('main.uploaded_file', name=insp.signature_file) }}" alt="Signature">{% endif %}
+        <div>{{ insp.signer_name or '' }}</div></div></div>
+    </div>
+    {% if insp.photos %}
+    <div class="row g-2 photos">{% for p in insp.photos %}<div class="col-4"><img src="{{ url_for('main.uploaded_file', name=p.file) }}" alt="{{ label }} photo {{ loop.index }}"></div>{% endfor %}</div>
+    {% endif %}
+  {% else %}
+    <p class="muted">Not completed.</p>
+  {% endif %}
+{% endfor %}
+{% endblock %}

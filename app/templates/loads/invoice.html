@@ -1,0 +1,49 @@
+{% extends "loads/_print_base.html" %}
+{% block title %}Invoice {{ load.number }} · {{ company.name }}{% endblock %}
+{% block sheet %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <div>
+    <h1 class="mb-1">{{ company.name }}</h1>
+    <div class="muted">{{ company.address or '' }}</div>
+    <div class="muted">{{ company.phone or '' }}{% if company.email %} · {{ company.email }}{% endif %}</div>
+    <div class="muted">{% if company.mc_number %}{{ company.mc_number }}{% endif %}{% if company.dot_number %} · USDOT {{ company.dot_number }}{% endif %}</div>
+  </div>
+  <div class="text-end">
+    <div class="fs-3 fw-bold">INVOICE</div>
+    <div>No. <b>{{ load.number }}</b></div>
+    <div class="muted">Date: {{ (load.invoiced_at or load.delivered_at or load.created_at)|d }}</div>
+    {% if load.reference %}<div class="muted">Your ref: {{ load.reference }}</div>{% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6"><div class="box"><h6>Bill to</h6>
+    {% if load.customer %}<div class="fw-semibold">{{ load.customer.name }}</div>
+      <div>{{ load.customer.contact_name or '' }}</div><div>{{ load.customer.address or '' }}</div>
+      <div>{{ load.customer.email or '' }}</div>{% else %}—{% endif %}</div></div>
+  <div class="col-6"><div class="box"><h6>Route</h6>
+    <div><b>From:</b> {{ load.pickup_name or '' }} {{ [load.pickup_city, load.pickup_state]|select|join(', ') }} ({{ load.pickup_date|d }})</div>
+    <div><b>To:</b> {{ load.delivery_name or '' }} {{ [load.delivery_city, load.delivery_state]|select|join(', ') }} ({{ (load.delivered_at or load.delivery_date)|d }})</div>
+    {% if load.miles %}<div class="muted">{{ load.miles }} miles</div>{% endif %}</div></div>
+</div>
+
+<table class="table">
+  <thead><tr><th>Vehicle</th><th>VIN</th><th class="text-end">Amount</th></tr></thead>
+  <tbody>
+    {% for v in load.vehicles %}
+    <tr><td>{{ v.title }}{% if v.color %}, {{ v.color }}{% endif %}{% if not v.operable %} (inop){% endif %}</td>
+        <td class="font-monospace">{{ v.vin or '' }}</td>
+        <td class="text-end">{% if loop.first %}{{ load.price|money }}{% endif %}</td></tr>
+    {% else %}
+    <tr><td colspan="2">Vehicle transport</td><td class="text-end">{{ load.price|money }}</td></tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><th colspan="2" class="text-end">Total</th><th class="text-end">{{ load.price|money }}</th></tr>
+    {% if load.amount_paid %}<tr><td colspan="2" class="text-end">Paid</td><td class="text-end">−{{ load.amount_paid|money }}</td></tr>{% endif %}
+    <tr><th colspan="2" class="text-end fs-5">Balance due</th><th class="text-end fs-5">{{ load.balance_due|money }}</th></tr>
+  </tfoot>
+</table>
+<p class="muted mb-0">Terms: {{ load.terms_label }}. {{ company.invoice_terms or '' }}</p>
+<p class="muted">Thank you for your business.</p>
+{% endblock %}

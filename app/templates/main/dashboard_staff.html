@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_macros.html" import load_item %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <h1 class="page-title me-auto">Good to see you, {{ current_user.name.split(' ')[0] }}</h1>
+  <a class="btn btn-warning fw-semibold d-sm-none" href="{{ url_for('loads.new') }}"><i class="bi bi-plus-lg"></i> Load</a>
+</div>
+
+<div class="row g-2 g-md-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card kpi h-100">
+    <div class="label">{{ month_name }} revenue</div><div class="value">{{ month_rev|money }}</div>
+    <div class="sub">delivered loads</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100">
+    <div class="label">{{ month_name }} expenses</div><div class="value">{{ month_exp|money }}</div>
+    <div class="sub"><a href="{{ url_for('expenses.index') }}">view expenses</a></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100">
+    <div class="label">{{ month_name }} profit</div>
+    <div class="value {{ 'text-danger' if month_profit < 0 }}">{{ month_profit|money }}</div>
+    <div class="sub"><a href="{{ url_for('reports.index') }}">full report</a></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100">
+    <div class="label">Owed to you</div><div class="value">{{ receivable|money }}</div>
+    <div class="sub">{{ unpaid_count }} unpaid load{{ 's' if unpaid_count != 1 }}</div></div></div>
+</div>
+
+<div class="filter-chips mb-3">
+  <a href="{{ url_for('loads.index', status='booked') }}">Booked <b>{{ counts.get('booked', 0) }}</b></a>
+  <a href="{{ url_for('loads.index', status='assigned') }}">Assigned <b>{{ counts.get('assigned', 0) }}</b></a>
+  <a href="{{ url_for('loads.index', status='picked_up') }}">On truck <b>{{ counts.get('picked_up', 0) }}</b></a>
+  <a href="{{ url_for('loads.index', status='delivered') }}">Delivered, unpaid <b>{{ counts.get('delivered', 0) }}</b></a>
+  <a href="{{ url_for('loads.index', status='quote') }}">Quotes <b>{{ counts.get('quote', 0) }}</b></a>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card mb-3">
+      <div class="card-header d-flex"><span class="me-auto"><i class="bi bi-exclamation-circle text-warning me-1"></i> Needs a driver</span>
+        <a class="small" href="{{ url_for('loads.index', status='booked') }}">All</a></div>
+      {% for l in needs_driver %}{{ load_item(l) }}{% else %}<div class="list-empty">Every booked load has a driver.</div>{% endfor %}
+    </div>
+    <div class="card mb-3">
+      <div class="card-header d-flex"><span class="me-auto"><i class="bi bi-cash-coin text-success me-1"></i> Waiting on payment</span>
+        <a class="small" href="{{ url_for('loads.index', status='delivered') }}">All</a></div>
+      {% for l in unpaid %}
+      <a class="load-item" href="{{ url_for('loads.detail', load_id=l.id) }}">
+        <div class="d-flex justify-content-between gap-2">
+          <div class="min-w-0"><div class="route text-truncate">{{ l.customer.name if l.customer else 'No customer' }}</div>
+            <div class="meta">#{{ l.number }} · delivered {{ l.revenue_date|short_date }} · {{ l.terms_label }}</div></div>
+          <div class="num fw-semibold">{{ l.balance_due|money }}</div>
+        </div>
+      </a>
+      {% else %}<div class="list-empty">Nothing outstanding. Nice.</div>{% endfor %}
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header d-flex"><span class="me-auto"><i class="bi bi-signpost-split text-primary me-1"></i> On the road</span>
+        <a class="small" href="{{ url_for('loads.index') }}">All open</a></div>
+      {% for l in on_road %}{{ load_item(l) }}{% else %}<div class="list-empty">No loads assigned or in transit.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

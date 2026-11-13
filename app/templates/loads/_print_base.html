@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{% endblock %}</title>
+<link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+<style>
+  body { background:#f4f6f9; font-size: 14px; }
+  .sheet { background:#fff; max-width: 820px; margin: 1rem auto; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+  h1 { font-size: 1.6rem; font-weight: 800; color: #0f3d6e; }
+  .muted { color:#6b7684; }
+  .box { border:1px solid #dfe3e8; border-radius:8px; padding:.75rem; height:100%; }
+  .box h6 { font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:#6b7684; margin-bottom:.35rem; }
+  table td, table th { vertical-align: top; }
+  .photos img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border:1px solid #dfe3e8; border-radius:6px; }
+  .sig { max-height: 90px; border-bottom: 1px solid #333; }
+  @media print { body { background:#fff; } .sheet { box-shadow:none; margin:0; max-width:none; padding:0; } .no-print { display:none !important; } .photos .col-4 { break-inside: avoid; } }
+</style>
+</head><body>
+<div class="no-print text-center my-3">
+  <button class="btn btn-primary" onclick="window.VTMApp ? VTMApp.print() : window.print()">Print / Save as PDF</button>
+  <a class="btn btn-outline-secondary" href="{{ url_for('loads.detail', load_id=load.id) }}">Back to load</a>
+</div>
+<div class="sheet">{% block sheet %}{% endblock %}</div>
+</body></html>

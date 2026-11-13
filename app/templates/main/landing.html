@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ APP_NAME }} — run your car-hauling business from your phone{% endblock %}
+{% block public %}
+<nav class="navbar bg-white border-bottom">
+  <div class="container">
+    <a class="navbar-brand fw-bold text-brand" href="/"><i class="bi bi-truck-front-fill text-warning"></i> {{ APP_NAME }}</a>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.app_download') }}"><i class="bi bi-android2"></i> <span class="d-none d-sm-inline">Android app</span></a>
+      <a class="btn btn-primary btn-sm" href="{{ url_for('auth.login') }}">Sign in</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-6">
+        <h1>Dispatch, inspect, deliver, get paid — all from your phone.</h1>
+        <p class="lead mt-3">Business management built for vehicle transport companies: loads, drivers, photo condition reports with e-signatures, expenses, invoices, and profit reports in one place.</p>
+        <div class="d-flex flex-wrap gap-2 mt-4">
+          <a class="btn btn-warning btn-lg fw-semibold" href="{{ url_for('auth.login') }}">Sign in</a>
+          <a class="btn btn-outline-light btn-lg" href="{{ url_for('main.app_download') }}"><i class="bi bi-android2"></i> Get the Android app</a>
+        </div>
+      </div>
+      <div class="col-lg-6 d-none d-md-block">
+        <div class="phone-mock"><div class="screen">
+          <div class="bg-brand px-3 py-2 fw-semibold"><i class="bi bi-truck-front-fill text-warning"></i> My loads</div>
+          <div class="p-2">
+            <div class="card mb-2"><div class="load-item"><div class="d-flex justify-content-between"><div><div class="route">Orlando, FL → Atlanta, GA</div><div class="meta">#1042 · 2021 Toyota Camry +2</div></div><span class="badge bg-primary align-self-start">Assigned</span></div></div>
+              <div class="px-3 pb-3"><span class="btn btn-primary w-100 btn-sm"><i class="bi bi-camera-fill"></i> Start pickup inspection</span></div></div>
+            <div class="card"><div class="load-item"><div class="d-flex justify-content-between"><div><div class="route">Miami, FL → Tampa, FL</div><div class="meta">#1039 · 2019 Honda Accord</div></div><span class="badge bg-warning text-dark align-self-start">Picked up</span></div></div>
+              <div class="px-3 pb-3"><span class="btn btn-success w-100 btn-sm"><i class="bi bi-check2-circle"></i> Deliver &amp; get signature</span></div></div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="py-5 bg-white">
+  <div class="container">
+    <div class="row g-4">
+      {% for icon, title, text in [
+        ('truck-flatbed', 'Loads & dispatch', 'Book loads with VIN decoding, assign drivers and trucks, and see everything on the road at a glance.'),
+        ('camera', 'Photo condition reports', 'Drivers photograph every vehicle at pickup and delivery, note damage, capture GPS and the customer\'s signature.'),
+        ('file-earmark-text', 'BOLs & invoices', 'Print or save a bill of lading with photos and signatures, and send a clean invoice the moment a car is delivered.'),
+        ('cash-coin', 'Get paid', 'Track COD, quick-pay and invoiced loads. See exactly who owes you and how long it\'s been.'),
+        ('fuel-pump', 'Expenses', 'Drivers log fuel, tolls and repairs with a receipt photo; the office reviews them.'),
+        ('bar-chart-line', 'Know your numbers', 'Profit, revenue and cost per mile, by driver, truck and customer. Export to CSV for your accountant.'),
+      ] %}
+      <div class="col-md-6 col-lg-4 feature">
+        <i class="bi bi-{{ icon }}"></i>
+        <h3 class="h5 fw-bold mt-2">{{ title }}</h3>
+        <p class="text-muted mb-0">{{ text }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<footer class="py-4 text-center text-muted small">
+  &copy; {{ APP_NAME }} · <a href="{{ url_for('auth.login') }}">Sign in</a> · <a href="{{ url_for('main.app_download') }}">Android app</a>
+</footer>
+{% endblock %}

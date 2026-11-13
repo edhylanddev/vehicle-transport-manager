@@ -1,0 +1,9 @@
+# ~/.cloudflared/config.yml (or /etc/cloudflared/config.yml)
+tunnel: <YOUR-TUNNEL-ID>
+credentials-file: /etc/cloudflared/<YOUR-TUNNEL-ID>.json
+ingress:
+  - hostname: vehicletransport.autos
+    service: http://127.0.0.1:5055
+  - hostname: www.vehicletransport.autos
+    service: http://127.0.0.1:5055
+  - service: http_status:404

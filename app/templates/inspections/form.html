@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ label }} · Load #{{ load.number }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <a class="btn btn-link px-0 me-2" href="{{ url_for('loads.detail', load_id=load.id) }}"><i class="bi bi-chevron-left"></i></a>
+  <div><h1 class="page-title">{{ label }} inspection</h1>
+    <div class="text-muted small">Load #{{ load.number }} · {{ load.vehicles_short }}</div></div>
+</div>
+
+<form method="post" data-upload="photos" data-geo>
+  {{ csrf() }}
+  <input type="hidden" name="lat"><input type="hidden" name="lng">
+
+  <div class="card mb-3"><div class="card-header d-flex align-items-center">
+    <span class="me-auto"><i class="bi bi-camera me-1"></i> Photos</span><span class="small text-muted" data-photo-count></span></div>
+    <div class="card-body">
+      <div class="shot-list mb-2">Suggested: <span>Front</span><span>Driver side</span><span>Rear</span><span>Passenger side</span><span>Roof</span><span>Odometer</span><span>VIN plate</span><span>Every scratch &amp; dent</span></div>
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="btn btn-primary w-100 big-action mb-0"><i class="bi bi-camera-fill"></i> Take photo
+            <input type="file" accept="image/*" capture="environment" data-photos name="photos" hidden></label>
+        </div>
+        <div class="col-6">
+          <label class="btn btn-outline-primary w-100 big-action mb-0"><i class="bi bi-images"></i> From gallery
+            <input type="file" accept="image/*" multiple data-photos name="photos" hidden></label>
+        </div>
+      </div>
+      <div class="photo-grid" data-photo-grid></div>
+    </div>
+  </div>
+
+  <div class="card mb-3"><div class="card-header">Condition</div><div class="card-body row g-2">
+    <div class="col-12"><label class="form-label" for="damage">Damage / notes <small class="text-muted">(leave blank if no damage)</small></label>
+      <textarea class="form-control" id="damage" name="damage_notes" rows="3" placeholder="e.g. 2&quot; scratch rear bumper left, chipped windshield"></textarea></div>
+    <div class="col-6"><label class="form-label" for="odo">Odometer</label>
+      <input class="form-control" id="odo" name="odometer" inputmode="numeric"></div>
+    <div class="col-6 d-flex align-items-end"><div class="small text-muted" data-geo-status><i class="bi bi-geo-alt"></i> Getting location…</div></div>
+  </div></div>
+
+  <div class="card mb-3"><div class="card-header">{{ 'Shipper' if kind == 'pickup' else 'Receiver' }} signature</div><div class="card-body">
+    <div class="mb-2"><label class="form-label" for="signer">Printed name</label>
+      <input class="form-control" id="signer" name="signer_name" autocomplete="off"></div>
+    <div class="sigpad-wrap" data-sigpad><canvas></canvas><div class="hint">Sign here</div></div>
+    <input type="hidden" name="signature">
+    <div class="d-flex mt-2"><small class="text-muted me-auto">By signing, the {{ 'shipper releases' if kind == 'pickup' else 'receiver accepts' }} the vehicle(s) in the condition noted above.</small>
+      <button type="button" class="btn btn-sm btn-link" data-sig-clear>Clear</button></div>
+  </div></div>
+
+  <div class="d-none mb-2" data-progress>
+    <div class="progress" style="height:8px"><div class="progress-bar" style="width:0%"></div></div>
+    <div class="small text-muted mt-1 label"></div>
+  </div>
+  <div class="sticky-actions">
+    <button class="btn {{ 'btn-primary' if kind == 'pickup' else 'btn-success' }} w-100 big-action">
+      <i class="bi bi-check2-circle"></i> Save &amp; mark {{ 'picked up' if kind == 'pickup' else 'delivered' }}</button>
+  </div>
+</form>
+{% endblock %}

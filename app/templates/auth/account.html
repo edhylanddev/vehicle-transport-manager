@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field %}
+{% block title %}My account{% endblock %}
+{% block content %}
+<h1 class="page-title mb-3">My account</h1>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Profile</div><div class="card-body">
+      <form method="post" class="row g-3">
+        {{ csrf() }}<input type="hidden" name="action" value="profile">
+        {{ field('name', 'Name', current_user.name, required=true) }}
+        {{ field('phone', 'Phone', current_user.phone, type='tel') }}
+        <div class="col-12"><label class="form-label">Email</label><input class="form-control" value="{{ current_user.email }}" disabled></div>
+        <div class="col-12"><button class="btn btn-primary">Save profile</button></div>
+      </form>
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Change password</div><div class="card-body">
+      <form method="post" class="row g-3">
+        {{ csrf() }}<input type="hidden" name="action" value="password">
+        {{ field('current_password', 'Current password', type='password', required=true, attrs='autocomplete="current-password"') }}
+        {{ field('new_password', 'New password (8+ characters)', type='password', required=true, attrs='autocomplete="new-password" minlength="8"') }}
+        {{ field('confirm_password', 'Confirm new password', type='password', required=true, attrs='autocomplete="new-password"') }}
+        <div class="col-12"><button class="btn btn-primary">Change password</button></div>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

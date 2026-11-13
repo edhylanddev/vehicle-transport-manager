@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import load_item %}
+{% block title %}Loads{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-2">
+  <h1 class="page-title me-auto">{{ 'My loads' if current_user.is_driver else 'Loads' }}</h1>
+  {% if current_user.is_staff %}
+  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('reports.loads_csv') }}" title="Export this month to CSV"><i class="bi bi-download"></i></a>
+  <a class="btn btn-sm btn-primary" href="{{ url_for('loads.new') }}"><i class="bi bi-plus-lg"></i> New</a>
+  {% endif %}
+</div>
+
+<form class="mb-2" method="get">
+  <input type="hidden" name="status" value="{{ status }}">
+  <div class="input-group">
+    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+    <input class="form-control" name="q" value="{{ q }}" placeholder="Load #, city, VIN, customer…">
+    {% if drivers %}
+    <select class="form-select" name="driver" style="max-width:10rem" onchange="this.form.submit()">
+      <option value="">All drivers</option>
+      {% for d in drivers %}<option value="{{ d.id }}" {{ 'selected' if d.id == driver_id }}>{{ d.name }}</option>{% endfor %}
+    </select>
+    {% endif %}
+  </div>
+</form>
+
+<div class="filter-chips mb-3">
+  {% set chips = [('open','Open')] + statuses|list + [('all','All')] %}
+  {% for key, label in chips %}
+    {% if not (current_user.is_driver and key in ('quote','booked','paid','cancelled')) %}
+    <a href="{{ url_for('loads.index', status=key, q=q or None, driver=driver_id) }}" class="{{ 'active' if status == key }}">{{ label }}</a>
+    {% endif %}
+  {% endfor %}
+</div>
+
+<div class="card">
+  {% for l in loads %}{{ load_item(l, show_money=current_user.is_staff) }}
+  {% else %}<div class="list-empty">No loads match.{% if current_user.is_staff %} <a href="{{ url_for('loads.new') }}">Add one</a>{% endif %}</div>{% endfor %}
+</div>
+
+{% if pagination.pages > 1 %}
+<nav class="mt-3 d-flex justify-content-between align-items-center">
+  <a class="btn btn-outline-secondary btn-sm {{ 'disabled' if not pagination.has_prev }}" href="{{ url_for('loads.index', status=status, q=q or None, driver=driver_id, page=pagination.prev_num) }}">‹ Newer</a>
+  <span class="small text-muted">Page {{ pagination.page }} of {{ pagination.pages }} · {{ pagination.total }} loads</span>
+  <a class="btn btn-outline-secondary btn-sm {{ 'disabled' if not pagination.has_next }}" href="{{ url_for('loads.index', status=status, q=q or None, driver=driver_id, page=pagination.next_num) }}">Older ›</a>
+</nav>
+{% endif %}
+{% endblock %}

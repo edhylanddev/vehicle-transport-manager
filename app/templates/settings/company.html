@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field %}
+{% block title %}Company settings{% endblock %}
+{% block content %}
+<h1 class="page-title mb-3">Company settings</h1>
+<div class="card" style="max-width:720px"><div class="card-body">
+<form method="post" class="row g-3">
+  {{ csrf() }}
+  {{ field('name', 'Company name', co.name, required=true) }}
+  {{ field('mc_number', 'MC number', co.mc_number, col='col-md-6') }}
+  {{ field('dot_number', 'USDOT number', co.dot_number, col='col-md-6') }}
+  {{ field('phone', 'Phone', co.phone, type='tel', col='col-md-6') }}
+  {{ field('email', 'Email', co.email, type='email', col='col-md-6') }}
+  {{ field('address', 'Address', co.address) }}
+  {{ field('invoice_terms', 'Invoice footer / terms', co.invoice_terms) }}
+  {{ field('next_load_number', 'Next load number', co.next_load_number, col='col-md-4', attrs='inputmode="numeric"') }}
+  <div class="col-12"><button class="btn btn-primary px-4">Save</button></div>
+</form>
+<p class="small text-muted mt-3 mb-0">These show on invoices and bills of lading.</p>
+</div></div>
+{% endblock %}

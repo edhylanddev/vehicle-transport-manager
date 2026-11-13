@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Team{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <h1 class="page-title me-auto">Team</h1>
+  {% if current_user.is_owner %}<a class="btn btn-sm btn-primary" href="{{ url_for('team.new') }}"><i class="bi bi-person-plus"></i> Add person</a>{% endif %}
+</div>
+<div class="card">
+  {% for u in users %}
+  <div class="load-item d-flex align-items-center gap-2 {{ 'opacity-50' if not u.is_active_flag }}">
+    <div class="me-auto min-w-0">
+      <div class="route">{{ u.name }} {% if u.id == current_user.id %}<span class="badge bg-light text-dark border">You</span>{% endif %}
+        {% if not u.is_active_flag %}<span class="badge bg-secondary">Inactive</span>{% endif %}</div>
+      <div class="meta">{{ roles[u.role] }} · {{ u.email }}{% if u.phone %} · <a href="tel:{{ u.phone|tel }}">{{ u.phone }}</a>{% endif %}</div>
+      {% if u.role == 'driver' %}<div class="meta">{{ active_loads.get(u.id, 0) }} active load{{ 's' if active_loads.get(u.id, 0) != 1 }}
+        · <a href="{{ url_for('loads.index', status='open', driver=u.id) }}">view</a></div>{% endif %}
+    </div>
+    {% if current_user.is_owner %}
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-label="Actions for {{ u.name }}"><i class="bi bi-three-dots"></i></button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="{{ url_for('team.edit', user_id=u.id) }}">Edit</a></li>
+        {% if u.id != current_user.id %}
+        <li><form method="post" action="{{ url_for('team.reset_password', user_id=u.id) }}" data-confirm="Make a new temporary password for {{ u.name }}? Their current password stops working.">{{ csrf() }}<button class="dropdown-item">Reset password</button></form></li>
+        <li><form method="post" action="{{ url_for('team.toggle_active', user_id=u.id) }}">{{ csrf() }}<button class="dropdown-item {{ 'text-danger' if u.is_active_flag }}">{{ 'Deactivate' if u.is_active_flag else 'Reactivate' }}</button></form></li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+<p class="small text-muted mt-3"><b>Owner</b>: everything. <b>Office / Dispatch</b>: loads, customers, money, reports — not team or company settings. <b>Driver</b>: only their own loads, inspections and expenses; never sees load prices.</p>
+{% endblock %}

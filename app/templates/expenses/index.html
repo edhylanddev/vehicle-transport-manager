@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Expenses{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-2">
+  <h1 class="page-title me-auto">{{ 'My expenses' if current_user.is_driver else 'Expenses' }}</h1>
+  {% if current_user.is_staff %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('reports.expenses_csv', start=start, end=end) }}" title="Export CSV"><i class="bi bi-download"></i></a>{% endif %}
+  <a class="btn btn-sm btn-primary" href="{{ url_for('expenses.new') }}"><i class="bi bi-plus-lg"></i> Add</a>
+</div>
+
+{% if pending %}
+<div class="alert alert-info py-2 d-flex align-items-center"><i class="bi bi-inbox me-2"></i>
+  <span class="me-auto">{{ pending }} driver expense{{ 's' if pending != 1 }} waiting for review.</span>
+  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('expenses.index', pending=1, start='2000-01-01', end=end) }}">Review</a></div>
+{% endif %}
+
+<form class="card card-body mb-3 py-2" method="get">
+  <div class="row g-2 align-items-end">
+    <div class="col-6 col-md-3"><label class="form-label small">From</label><input class="form-control form-control-sm" type="date" name="start" value="{{ start|iso }}"></div>
+    <div class="col-6 col-md-3"><label class="form-label small">To</label><input class="form-control form-control-sm" type="date" name="end" value="{{ end|iso }}"></div>
+    <div class="col-6 col-md-2"><label class="form-label small">Category</label>
+      <select class="form-select form-select-sm" name="category"><option value="">All</option>
+        {% for k, l in categories %}<option value="{{ k }}" {{ 'selected' if k == cat }}>{{ l }}</option>{% endfor %}</select></div>
+    {% if people %}<div class="col-6 col-md-2"><label class="form-label small">Person</label>
+      <select class="form-select form-select-sm" name="user"><option value="">Everyone</option>
+        {% for p in people %}<option value="{{ p.id }}" {{ 'selected' if p.id == who }}>{{ p.name }}</option>{% endfor %}</select></div>{% endif %}
+    <div class="col-12 col-md-2"><button class="btn btn-sm btn-outline-primary w-100">Filter</button></div>
+  </div>
+</form>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex"><span class="me-auto">{{ expenses|length }} expense{{ 's' if expenses|length != 1 }}</span><span class="num">{{ total|money }}</span></div>
+      {% for e in expenses %}
+      <div class="load-item d-flex gap-2 align-items-start">
+        <div class="me-auto min-w-0">
+          <div class="fw-semibold">{{ e.category_label }}{% if e.vendor %} <span class="fw-normal text-muted">· {{ e.vendor }}</span>{% endif %}
+            {% if not e.approved %}<span class="badge bg-info text-dark">Needs review</span>{% endif %}</div>
+          <div class="meta">{{ e.spent_on|d }}{% if e.user and current_user.is_staff %} · {{ e.user.name }}{% endif %}{% if e.truck %} · {{ e.truck.unit }}{% endif %}{% if e.load %} · <a href="{{ url_for('loads.detail', load_id=e.load.id) }}">load #{{ e.load.number }}</a>{% endif %}{% if e.gallons %} · {{ e.gallons|round(1) }} gal{% endif %}</div>
+          {% if e.notes %}<div class="meta">{{ e.notes }}</div>{% endif %}
+          <div class="d-flex gap-3 mt-1 small">
+            {% if e.receipt_file %}<a href="{{ url_for('main.uploaded_file', name=e.receipt_file) }}" target="_blank"><i class="bi bi-image"></i> Receipt</a>{% endif %}
+            {% if current_user.is_staff or (e.user_id == current_user.id and not e.approved) %}<a href="{{ url_for('expenses.edit', expense_id=e.id) }}">Edit</a>{% endif %}
+            {% if current_user.is_staff %}
+              <form method="post" action="{{ url_for('expenses.approve', expense_id=e.id) }}">{{ csrf() }}<button class="btn btn-link btn-sm p-0">{{ 'Mark reviewed' if not e.approved else 'Unreview' }}</button></form>
+            {% endif %}
+          </div>
+        </div>
+        <div class="num fw-semibold">{{ e.amount|money }}</div>
+      </div>
+      {% else %}<div class="list-empty">No expenses in this range.</div>{% endfor %}
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">By category</div>
+      <ul class="list-group list-group-flush">
+        {% for label, amt in by_cat %}<li class="list-group-item d-flex"><span class="me-auto">{{ label }}</span><span class="num">{{ amt|money }}</span></li>
+        {% else %}<li class="list-group-item text-muted">—</li>{% endfor %}
+      </ul></div>
+  </div>
+</div>
+{% endblock %}

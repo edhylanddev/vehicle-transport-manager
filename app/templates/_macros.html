@@ -1,0 +1,29 @@
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro load_item(l, show_money=true) %}
+<a class="load-item" href="{{ url_for('loads.detail', load_id=l.id) }}">
+  <div class="d-flex justify-content-between align-items-start gap-2">
+    <div class="min-w-0">
+      <div class="route text-truncate">{{ l.route_short }}</div>
+      <div class="meta text-truncate">#{{ l.number }} · {{ l.vehicles_short }}{% if l.customer and show_money %} · {{ l.customer.name }}{% endif %}</div>
+      <div class="meta">
+        <i class="bi bi-calendar-event"></i> {{ l.pickup_date|short_date }} → {{ l.delivery_date|short_date }}
+        {% if l.driver and show_money %} · <i class="bi bi-person"></i> {{ l.driver.name.split(' ')[0] }}{% endif %}
+      </div>
+    </div>
+    <div class="text-end flex-shrink-0">
+      {{ l.status|status_badge }}
+      {% if show_money %}<div class="num fw-semibold mt-1">{{ l.price|money }}</div>
+      {% elif l.driver_pay %}<div class="num small text-muted mt-1">Pay {{ l.driver_pay|money }}</div>{% endif %}
+    </div>
+  </div>
+</a>
+{% endmacro %}
+
+{% macro field(name, label, value='', type='text', col='col-12', required=false, placeholder='', attrs='') %}
+<div class="{{ col }}">
+  <label class="form-label" for="f_{{ name }}">{{ label }}</label>
+  <input class="form-control" id="f_{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value if value is not none else '' }}"
+         {% if required %}required{% endif %} {% if placeholder %}placeholder="{{ placeholder }}"{% endif %} {{ attrs|safe }}>
+</div>
+{% endmacro %}

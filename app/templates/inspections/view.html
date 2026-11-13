@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ label }} report · Load #{{ load.number }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <a class="btn btn-link px-0 me-2" href="{{ url_for('loads.detail', load_id=load.id) }}"><i class="bi bi-chevron-left"></i></a>
+  <div class="me-auto"><h1 class="page-title">{{ label }} report</h1>
+    <div class="text-muted small">Load #{{ load.number }} · {{ insp.created_at|d }} · by {{ insp.driver.name if insp.driver else '—' }}</div></div>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('loads.bol', load_id=load.id) }}" target="_blank"><i class="bi bi-printer"></i> BOL</a>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card mb-3"><div class="card-header">Photos ({{ insp.photos|length }})</div><div class="card-body">
+      <div class="photo-grid">
+        {% for p in insp.photos %}
+          <a href="{{ url_for('main.uploaded_file', name=p.file) }}" target="_blank"><img src="{{ url_for('main.uploaded_file', name=p.file) }}" alt="Photo {{ loop.index }}" loading="lazy"></a>
+        {% else %}<div class="text-muted">No photos.</div>{% endfor %}
+      </div>
+      {% if current_user.is_staff or load.driver_id == current_user.id %}
+      <form method="post" action="{{ url_for('inspections.add_photos', inspection_id=insp.id) }}" data-upload="photos" class="mt-3">
+        {{ csrf() }}
+        <div class="photo-grid mb-2" data-photo-grid></div>
+        <div class="d-flex gap-2">
+          <label class="btn btn-outline-primary mb-0"><i class="bi bi-camera"></i> Add photos
+            <input type="file" accept="image/*" multiple data-photos name="photos" hidden></label>
+          <button class="btn btn-primary">Upload</button>
+        </div>
+        <div class="d-none mt-2" data-progress><div class="progress" style="height:8px"><div class="progress-bar"></div></div><div class="small text-muted label"></div></div>
+      </form>
+      {% endif %}
+    </div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card mb-3"><div class="card-body">
+      <dl class="kv">
+        <dt>Damage</dt><dd style="white-space:pre-wrap">{{ insp.damage_notes or 'None noted' }}</dd>
+        <dt>Odometer</dt><dd>{{ insp.odometer or '—' }}</dd>
+        <dt>Location</dt><dd>{% if insp.lat %}<a href="https://www.google.com/maps/search/?api=1&query={{ insp.lat }},{{ insp.lng }}" target="_blank" rel="noopener">View on map</a>{% else %}—{% endif %}</dd>
+        <dt>Signed by</dt><dd>{{ insp.signer_name or '—' }}</dd>
+      </dl>
+      {% if insp.signature_file %}<img class="img-fluid border rounded mt-2 bg-white" src="{{ url_for('main.uploaded_file', name=insp.signature_file) }}" alt="Signature">{% endif %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

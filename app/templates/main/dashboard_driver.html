@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import load_item %}
+{% block title %}My loads{% endblock %}
+{% block content %}
+<h1 class="page-title mb-3">Hi {{ current_user.name.split(' ')[0] }}</h1>
+
+<div class="row g-2 mb-3">
+  <div class="col-4"><div class="card kpi h-100 text-center"><div class="label">Active</div><div class="value">{{ active|length }}</div></div></div>
+  <div class="col-4"><div class="card kpi h-100 text-center"><div class="label">Delivered this month</div><div class="value">{{ month_loads }}</div></div></div>
+  <div class="col-4"><div class="card kpi h-100 text-center"><div class="label">Pay this month</div><div class="value" style="font-size:1.2rem">{{ month_pay|money }}</div></div></div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">My active loads</div>
+  {% for l in active %}
+    {{ load_item(l, show_money=false) }}
+    <div class="px-3 pb-3 border-bottom">
+      {% if l.status == 'assigned' %}
+        <a class="btn btn-primary w-100 big-action" href="{{ url_for('inspections.inspect', load_id=l.id, kind='pickup') }}"><i class="bi bi-camera-fill me-1"></i> Start pickup inspection</a>
+      {% elif l.status == 'picked_up' %}
+        <a class="btn btn-success w-100 big-action" href="{{ url_for('inspections.inspect', load_id=l.id, kind='delivery') }}"><i class="bi bi-check2-circle me-1"></i> Deliver & get signature</a>
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="list-empty">No loads assigned to you right now.</div>
+  {% endfor %}
+</div>
+
+<div class="row g-2 mb-3">
+  <div class="col-6"><a class="btn btn-outline-primary w-100 big-action" href="{{ url_for('expenses.new', category='fuel') }}"><i class="bi bi-fuel-pump"></i> Log fuel</a></div>
+  <div class="col-6"><a class="btn btn-outline-primary w-100 big-action" href="{{ url_for('expenses.new', category='tolls') }}"><i class="bi bi-receipt"></i> Other expense</a></div>
+</div>
+<p class="small text-muted">Expenses you've logged this month: <b>{{ month_expenses|money }}</b></p>
+
+{% if recent %}
+<div class="card">
+  <div class="card-header">Recently delivered</div>
+  {% for l in recent %}{{ load_item(l, show_money=false) }}{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

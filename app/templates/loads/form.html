@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field %}
+{% block title %}{{ 'Edit load #' ~ load.number if load.id else 'New load' }}{% endblock %}
+
+{% macro vehicle_row(v=None) %}
+<div class="vehicle-row">
+  <div class="d-flex align-items-center mb-2">
+    <span class="fw-semibold me-auto">Vehicle <span class="vnum"></span></span>
+    <button type="button" class="btn btn-sm btn-link text-danger p-0" data-remove-vehicle><i class="bi bi-trash"></i> Remove</button>
+  </div>
+  <div class="row g-2">
+    <div class="col-12">
+      <div class="input-group">
+        <input class="form-control text-uppercase" name="v_vin" maxlength="17" placeholder="VIN (17 characters)" value="{{ v.vin if v and v.vin else '' }}" autocapitalize="characters" autocomplete="off">
+        <button class="btn btn-outline-secondary" type="button" data-decode-vin title="Fill year/make/model from VIN"><i class="bi bi-magic"></i> Decode</button>
+      </div>
+    </div>
+    <div class="col-3"><input class="form-control" name="v_year" maxlength="4" inputmode="numeric" placeholder="Year" value="{{ v.year if v and v.year else '' }}"></div>
+    <div class="col-4"><input class="form-control" name="v_make" placeholder="Make" value="{{ v.make if v and v.make else '' }}"></div>
+    <div class="col-5"><input class="form-control" name="v_model" placeholder="Model" value="{{ v.model if v and v.model else '' }}"></div>
+    <div class="col-4"><input class="form-control" name="v_color" placeholder="Color" value="{{ v.color if v and v.color else '' }}"></div>
+    <div class="col-4"><input class="form-control" name="v_lot_number" placeholder="Lot / stock #" value="{{ v.lot_number if v and v.lot_number else '' }}"></div>
+    <div class="col-4"><select class="form-select" name="v_operable">
+      <option value="1" {{ 'selected' if not v or v.operable }}>Runs</option>
+      <option value="0" {{ 'selected' if v and not v.operable }}>Inop</option></select></div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro stop(side, title) %}
+<div class="card mb-3"><div class="card-header"><i class="bi bi-geo-alt{{ '-fill' if side == 'delivery' }} me-1"></i> {{ title }}</div><div class="card-body row g-2">
+  {{ field(side ~ '_name', 'Location name', load[side ~ '_name'], col='col-md-6', placeholder='Dealer, auction, residence…') }}
+  {{ field(side ~ '_date', 'Date', load[side ~ '_date']|iso, type='date', col='col-md-6') }}
+  {{ field(side ~ '_address', 'Street address', load[side ~ '_address']) }}
+  {{ field(side ~ '_city', 'City', load[side ~ '_city'], col='col-6 col-md-5') }}
+  {{ field(side ~ '_state', 'State', load[side ~ '_state'], col='col-3 col-md-3', attrs='maxlength="20" autocapitalize="characters"') }}
+  {{ field(side ~ '_zip', 'ZIP', load[side ~ '_zip'], col='col-3 col-md-4', attrs='inputmode="numeric" maxlength="12"') }}
+  {{ field(side ~ '_contact', 'Contact', load[side ~ '_contact'], col='col-6') }}
+  {{ field(side ~ '_phone', 'Phone', load[side ~ '_phone'], type='tel', col='col-6') }}
+</div></div>
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <a class="btn btn-link px-0 me-2" href="{{ url_for('loads.detail', load_id=load.id) if load.id else url_for('loads.index') }}"><i class="bi bi-chevron-left"></i></a>
+  <h1 class="page-title">{{ 'Edit load #' ~ load.number if load.id else 'New load' }}</h1>
+</div>
+
+<form method="post" autocomplete="off">
+  {{ csrf() }}
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="card mb-3"><div class="card-header">Customer</div><div class="card-body row g-2">
+        <div class="col-md-7">
+          <label class="form-label" for="f_customer">Customer</label>
+          <select class="form-select" id="f_customer" name="customer_id">
+            <option value="">— none —</option>
+            {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if c.id == load.customer_id }}>{{ c.name }}</option>{% endfor %}
+            <option value="__new">+ New customer…</option>
+          </select>
+        </div>
+        {{ field('reference', 'Their order / dispatch #', load.reference, col='col-md-5') }}
+        <div class="col-12 d-none" data-new-customer>
+          <div class="row g-2">
+            {{ field('new_customer', 'New customer name', col='col-8') }}
+            <div class="col-4"><label class="form-label">Type</label>
+              <select class="form-select" name="new_customer_kind">
+                {% for k in ['broker','dealer','auction','private','other'] %}<option value="{{ k }}">{{ k|title }}</option>{% endfor %}
+              </select></div>
+          </div>
+        </div>
+      </div></div>
+
+      <div class="card mb-3"><div class="card-header d-flex align-items-center"><span class="me-auto"><i class="bi bi-car-front me-1"></i> Vehicles</span>
+        <button type="button" class="btn btn-sm btn-outline-primary" data-add-vehicle><i class="bi bi-plus"></i> Add vehicle</button></div>
+        <div class="card-body" data-vehicles>
+          {% for v in load.vehicles %}{{ vehicle_row(v) }}{% else %}{{ vehicle_row() }}{% endfor %}
+        </div>
+      </div>
+      {{ stop('pickup', 'Pickup') }}
+      {{ stop('delivery', 'Delivery') }}
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card mb-3"><div class="card-header">Money</div><div class="card-body row g-2">
+        {{ field('price', 'Load price ($)', load.price if load.price else '', col='col-6', attrs='inputmode="decimal" required') }}
+        {{ field('miles', 'Miles', load.miles, col='col-6', attrs='inputmode="numeric"') }}
+        <div class="col-12"><label class="form-label">Payment terms</label>
+          <select class="form-select" name="payment_terms">
+            {% for k, label in terms %}<option value="{{ k }}" {{ 'selected' if k == load.payment_terms }}>{{ label }}</option>{% endfor %}
+          </select></div>
+        {{ field('driver_pay', 'Driver pay ($)', load.driver_pay, col='col-6', attrs='inputmode="decimal"') }}
+        {{ field('broker_fee', 'Broker / dispatch fee ($)', load.broker_fee, col='col-6', attrs='inputmode="decimal"') }}
+      </div></div>
+
+      <div class="card mb-3"><div class="card-header">Dispatch</div><div class="card-body row g-2">
+        {% if not load.id %}
+        <div class="col-12"><label class="form-label">Status</label>
+          <select class="form-select" name="status">
+            <option value="booked">Booked (confirmed)</option>
+            <option value="quote">Quote (not confirmed yet)</option>
+          </select></div>
+        {% endif %}
+        <div class="col-7"><label class="form-label">Driver</label>
+          <select class="form-select" name="driver_id">
+            <option value="">— unassigned —</option>
+            {% for d in drivers %}<option value="{{ d.id }}" {{ 'selected' if d.id == load.driver_id }}>{{ d.name }}</option>{% endfor %}
+          </select></div>
+        <div class="col-5"><label class="form-label">Truck</label>
+          <select class="form-select" name="truck_id">
+            <option value="">—</option>
+            {% for t in trucks %}<option value="{{ t.id }}" {{ 'selected' if t.id == load.truck_id }}>{{ t.unit }}</option>{% endfor %}
+          </select></div>
+        <div class="col-12"><label class="form-label">Notes for the driver</label>
+          <textarea class="form-control" name="dispatch_notes" rows="3" placeholder="Gate codes, hours, keys, payment to collect…">{{ load.dispatch_notes or '' }}</textarea></div>
+        <div class="col-12"><label class="form-label">Internal notes <small class="text-muted">(office only)</small></label>
+          <textarea class="form-control" name="internal_notes" rows="2">{{ load.internal_notes or '' }}</textarea></div>
+      </div></div>
+    </div>
+  </div>
+  <div class="sticky-actions d-flex gap-2">
+    <button class="btn btn-primary big-action flex-grow-1 flex-md-grow-0 px-5">{{ 'Save changes' if load.id else 'Create load' }}</button>
+    <a class="btn btn-outline-secondary big-action" href="{{ url_for('loads.detail', load_id=load.id) if load.id else url_for('loads.index') }}">Cancel</a>
+  </div>
+</form>
+<template id="vehicle-row-template">{{ vehicle_row() }}</template>
+{% endblock %}
+{% block scripts %}<script>document.querySelectorAll('.vehicle-row .vnum').forEach((e,i)=>e.textContent=i+1)</script>{% endblock %}

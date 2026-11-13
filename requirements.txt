@@ -1,0 +1,9 @@
+Flask==3.1.*
+Flask-SQLAlchemy==3.1.*
+Flask-Login==0.6.*
+Flask-WTF==1.2.*
+python-dotenv==1.*
+PyMySQL==1.1.*
+cryptography>=42      # needed by PyMySQL for MySQL 8 caching_sha2 auth
+Pillow>=10.3
+gunicorn==23.*

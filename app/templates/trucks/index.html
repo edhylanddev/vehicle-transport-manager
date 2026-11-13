@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Trucks{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <h1 class="page-title me-auto">Trucks</h1>
+  <a class="btn btn-sm btn-primary" href="{{ url_for('trucks.new') }}"><i class="bi bi-plus-lg"></i> Add truck</a>
+</div>
+<div class="card">
+  {% for t in trucks %}
+  <a class="load-item {{ 'opacity-50' if not t.is_active }}" href="{{ url_for('trucks.edit', truck_id=t.id) }}">
+    <div class="route">{{ t.unit }} {% if not t.is_active %}<span class="badge bg-secondary">Retired</span>{% endif %}</div>
+    <div class="meta">{{ t.description or '' }}{% if t.capacity %} · {{ t.capacity }}-car{% endif %}{% if t.plate %} · {{ t.plate }}{% endif %}</div>
+  </a>
+  {% else %}<div class="list-empty">No trucks yet. Adding them lets you see revenue and cost per truck.</div>{% endfor %}
+</div>
+{% endblock %}

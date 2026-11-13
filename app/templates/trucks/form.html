@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field %}
+{% block title %}{{ t.unit if t.id else 'Add truck' }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <a class="btn btn-link px-0 me-2" href="{{ url_for('trucks.index') }}"><i class="bi bi-chevron-left"></i></a>
+  <h1 class="page-title">{{ 'Edit ' ~ t.unit if t.id else 'Add truck' }}</h1>
+</div>
+<div class="card" style="max-width:640px"><div class="card-body">
+<form method="post" class="row g-3">
+  {{ csrf() }}
+  {{ field('unit', 'Unit name / number', t.unit, col='col-md-4', required=true, placeholder='T-1') }}
+  {{ field('description', 'Description', t.description, col='col-md-8', placeholder='Peterbilt 389 + 9-car trailer') }}
+  {{ field('vin', 'VIN', t.vin, col='col-md-6') }}
+  {{ field('plate', 'Plate', t.plate, col='col-md-3') }}
+  {{ field('capacity', 'Car capacity', t.capacity, col='col-md-3', attrs='inputmode="numeric"') }}
+  <div class="col-md-6"><label class="form-label">Status</label>
+    <select class="form-select" name="is_active"><option value="1" {{ 'selected' if t.is_active }}>In service</option><option value="0" {{ 'selected' if not t.is_active }}>Retired</option></select></div>
+  <div class="col-12"><button class="btn btn-primary px-4">Save</button></div>
+</form>
+</div></div>
+{% endblock %}

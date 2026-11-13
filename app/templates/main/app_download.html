@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Android app · {{ APP_NAME }}{% endblock %}
+{% macro body() %}
+<div class="card mx-auto my-4" style="max-width:560px"><div class="card-body p-4">
+  <div class="text-center mb-3">
+    <div class="d-inline-flex align-items-center justify-content-center rounded-4 mb-2" style="width:72px;height:72px;background:var(--brand)">
+      <i class="bi bi-truck-front-fill fs-1 text-warning"></i></div>
+    <h1 class="h4 fw-bold mb-0">{{ APP_NAME }} for Android</h1>
+    <div class="text-muted small">Version {{ version }}{% if size_mb %} · {{ size_mb }} MB{% endif %}</div>
+  </div>
+  {% if available %}
+    <a class="btn btn-primary w-100 big-action mb-4" href="{{ url_for('static', filename='downloads/' ~ config.ANDROID_APK_FILE) }}" download><i class="bi bi-download"></i> Download the app</a>
+    <h2 class="h6 fw-bold">Installing (one time)</h2>
+    <ol class="small ps-3">
+      <li>Tap <b>Download the app</b> above. If Chrome warns that the file might be harmful, tap <b>Download anyway</b>.</li>
+      <li>Open the downloaded file (pull down your notifications, or open <b>Files → Downloads</b>).</li>
+      <li>If asked, allow your browser to <b>install unknown apps</b>, then go back and tap <b>Install</b>.</li>
+      <li>Open the app and sign in with the email and password from your company.</li>
+    </ol>
+    <p class="small text-muted mb-0">The app checks for updates when it opens and will offer the new version. When the camera or location is requested, tap <b>Allow</b> — it's used for vehicle photos and to stamp where pickups and deliveries happen.</p>
+  {% else %}
+    <div class="alert alert-info mb-0">The Android app is being prepared. In the meantime, the website works on your phone: open <b>{{ config.APP_URL }}</b> in Chrome and choose <b>⋮ → Add to Home screen</b>.</div>
+  {% endif %}
+</div></div>
+{% endmacro %}
+{% block content %}{{ body() }}{% endblock %}
+{% block public %}
+<nav class="navbar bg-white border-bottom"><div class="container">
+  <a class="navbar-brand fw-bold text-brand" href="/"><i class="bi bi-truck-front-fill text-warning"></i> {{ APP_NAME }}</a>
+  <a class="btn btn-primary btn-sm" href="{{ url_for('auth.login') }}">Sign in</a></div></nav>
+<div class="container">{{ body() }}</div>
+{% endblock %}

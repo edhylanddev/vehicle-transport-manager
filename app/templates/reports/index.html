@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-2 gap-2 flex-wrap">
+  <h1 class="page-title me-auto">Reports</h1>
+  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('reports.loads_csv', start=start, end=end) }}"><i class="bi bi-download"></i> Loads CSV</a>
+  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('reports.expenses_csv', start=start, end=end) }}"><i class="bi bi-download"></i> Expenses CSV</a>
+</div>
+
+<div class="filter-chips mb-2">
+  {% for label, s, e in presets %}
+    <a href="{{ url_for('reports.index', start=s, end=e) }}" class="{{ 'active' if s == start and e == end }}">{{ label }}</a>
+  {% endfor %}
+</div>
+<form class="row g-2 mb-3 align-items-end" method="get">
+  <div class="col-5 col-md-3"><label class="form-label small">From</label><input class="form-control form-control-sm" type="date" name="start" value="{{ start|iso }}"></div>
+  <div class="col-5 col-md-3"><label class="form-label small">To</label><input class="form-control form-control-sm" type="date" name="end" value="{{ end|iso }}"></div>
+  <div class="col-2 col-md-1"><button class="btn btn-sm btn-primary w-100" aria-label="Apply dates"><i class="bi bi-arrow-right"></i></button></div>
+</form>
+
+<div class="row g-2 g-md-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card kpi h-100"><div class="label">Revenue</div><div class="value">{{ s.revenue|money }}</div><div class="sub">{{ s.loads }} loads · {{ s.cars }} cars</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100"><div class="label">Costs</div><div class="value">{{ s.expenses|money }}</div><div class="sub">expenses + driver pay + fees</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100"><div class="label">Profit</div><div class="value {{ 'text-danger' if s.profit < 0 }}">{{ s.profit|money }}</div>
+    <div class="sub">{% if s.revenue %}{{ ((s.profit / s.revenue) * 100)|round(1) }}% margin{% else %}&nbsp;{% endif %}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100"><div class="label">Revenue per mile</div>
+    <div class="value">{{ s.rev_per_mile|money }}</div>
+    <div class="sub">cost {{ s.cost_per_mile|money }}/mi · {{ '{:,}'.format(s.miles) }} loaded mi</div></div></div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+    <span class="me-auto">Revenue vs. costs, last 12 months</span>
+    <span class="small fw-normal"><span class="legend-dot" style="background:var(--series-1)"></span>Revenue</span>
+    <span class="small fw-normal"><span class="legend-dot" style="background:var(--series-2)"></span>Expenses</span>
+  </div>
+  <div class="card-body">
+    <div class="trend" role="img" aria-label="Monthly revenue and expenses; table below has the numbers">
+      {% for t in trend %}
+      <div class="m" tabindex="0">
+        <div class="bar rev" style="height:{{ (t.revenue / trend_max * 100)|round(1) }}%"></div>
+        <div class="bar exp" style="height:{{ (t.expenses / trend_max * 100)|round(1) }}%"></div>
+        <div class="tip">{{ t.label }}<br>Revenue {{ t.revenue|money }}<br>Expenses {{ t.expenses|money }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="trend-labels">{% for t in trend %}<div>{{ t.label.split(' ')[0] }}</div>{% endfor %}</div>
+    <details class="mt-2 small"><summary class="text-muted">Show as table</summary>
+      <table class="table table-sm mt-2 mb-0"><thead><tr><th>Month</th><th class="text-end">Revenue</th><th class="text-end">Expenses</th><th class="text-end">Difference</th></tr></thead>
+        <tbody>{% for t in trend %}<tr><td>{{ t.label }}</td><td class="text-end num">{{ t.revenue|money }}</td><td class="text-end num">{{ t.expenses|money }}</td><td class="text-end num">{{ (t.revenue - t.expenses)|money }}</td></tr>{% endfor %}</tbody></table>
+    </details>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card mb-3"><div class="card-header">Costs by category</div>
+      <ul class="list-group list-group-flush">
+        {% for label, amt in by_cat %}
+        <li class="list-group-item d-flex"><span class="me-auto">{{ label }}</span><span class="num">{{ amt|money }}</span></li>
+        {% else %}<li class="list-group-item text-muted">No costs in this period.</li>{% endfor %}
+        {% if s.fuel_gallons %}<li class="list-group-item small text-muted">{{ s.fuel_gallons|round(1) }} gallons of fuel{% if s.miles %} · {{ (s.miles / s.fuel_gallons)|round(1) }} loaded mi/gal{% endif %}</li>{% endif %}
+      </ul></div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card mb-3"><div class="card-header">By driver</div>
+      <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+        <thead><tr><th>Driver</th><th class="text-end">Loads</th><th class="text-end">Cars</th><th class="text-end">Revenue</th><th class="text-end">Driver pay</th><th class="text-end">Expenses</th></tr></thead>
+        <tbody>{% for r in by_driver %}<tr><td>{{ r.name }}</td><td class="text-end">{{ r.loads }}</td><td class="text-end">{{ r.cars }}</td><td class="text-end num">{{ r.revenue|money }}</td><td class="text-end num">{{ r.pay|money }}</td><td class="text-end num">{{ r.expenses|money }}</td></tr>
+        {% else %}<tr><td colspan="6" class="text-muted">—</td></tr>{% endfor %}</tbody></table></div></div>
+
+    <div class="card mb-3"><div class="card-header">By truck</div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Truck</th><th class="text-end">Loads</th><th class="text-end">Revenue</th><th class="text-end">Expenses</th><th class="text-end">Net</th><th class="text-end">Cost/mi</th></tr></thead>
+        <tbody>{% for r in by_truck %}<tr><td>{{ r.name }}</td><td class="text-end">{{ r.loads }}</td><td class="text-end num">{{ r.revenue|money }}</td><td class="text-end num">{{ r.expenses|money }}</td><td class="text-end num">{{ (r.revenue - r.expenses)|money }}</td><td class="text-end num">{{ (r.expenses / r.miles)|money if r.miles else '—' }}</td></tr>
+        {% else %}<tr><td colspan="6" class="text-muted">—</td></tr>{% endfor %}</tbody></table></div></div>
+
+    <div class="card mb-3"><div class="card-header">By customer</div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Customer</th><th class="text-end">Loads</th><th class="text-end">Revenue</th><th class="text-end">Unpaid</th></tr></thead>
+        <tbody>{% for name, r in by_customer %}<tr><td>{{ name }}</td><td class="text-end">{{ r.loads }}</td><td class="text-end num">{{ r.revenue|money }}</td><td class="text-end num {{ 'text-danger' if r.balance > 0 }}">{{ r.balance|money }}</td></tr>
+        {% else %}<tr><td colspan="4" class="text-muted">—</td></tr>{% endfor %}</tbody></table></div></div>
+  </div>
+</div>
+<p class="small text-muted">Revenue counts loads marked Delivered or Paid, dated by delivery. Driver pay entered on loads is counted as a cost unless you also log driver pay as an expense in the same period (then only the logged expenses count, to avoid double-counting).</p>
+{% endblock %}

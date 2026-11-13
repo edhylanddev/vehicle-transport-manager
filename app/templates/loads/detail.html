@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Load #{{ load.number }}{% endblock %}
+
+{% macro stop(side, label) %}
+{% set name = load[side ~ '_name'] %}{% set phone = load[side ~ '_phone'] %}
+{% set map = [load[side ~ '_address'], load[side ~ '_city'], load[side ~ '_state'], load[side ~ '_zip']]|maps %}
+<div class="stop {{ side }} mb-3">
+  <div class="tag">{{ label }} · {{ load[side ~ '_date']|d }}</div>
+  {% if name %}<div class="fw-semibold">{{ name }}</div>{% endif %}
+  <div>{{ load[side ~ '_address'] or '' }}</div>
+  <div>{{ [load[side ~ '_city'], load[side ~ '_state']]|select|join(', ') }} {{ load[side ~ '_zip'] or '' }}</div>
+  {% if load[side ~ '_contact'] %}<div class="small text-muted">Contact: {{ load[side ~ '_contact'] }}</div>{% endif %}
+  <div class="d-flex gap-2 mt-2">
+    {% if phone %}<a class="btn btn-sm btn-outline-primary" href="tel:{{ phone|tel }}"><i class="bi bi-telephone"></i> {{ phone }}</a>{% endif %}
+    {% if map %}<a class="btn btn-sm btn-outline-primary" href="{{ map }}" target="_blank" rel="noopener"><i class="bi bi-map"></i> Directions</a>{% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="d-flex align-items-start gap-2 mb-3">
+  <a class="btn btn-link px-0" href="{{ url_for('loads.index') }}"><i class="bi bi-chevron-left"></i></a>
+  <div class="me-auto min-w-0">
+    <h1 class="page-title">Load #{{ load.number }} {{ load.status|status_badge }}</h1>
+    <div class="text-muted">{{ load.route_short }}{% if load.miles %} · {{ load.miles }} mi{% endif %}</div>
+  </div>
+  {% if current_user.is_staff %}
+  <div class="dropdown">
+    <button class="btn btn-outline-secondary" data-bs-toggle="dropdown" aria-label="More actions"><i class="bi bi-three-dots"></i></button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><a class="dropdown-item" href="{{ url_for('loads.edit', load_id=load.id) }}"><i class="bi bi-pencil me-2"></i>Edit load</a></li>
+      <li><a class="dropdown-item" href="{{ url_for('loads.invoice', load_id=load.id, mark=1) }}" target="_blank"><i class="bi bi-file-earmark-text me-2"></i>Invoice</a></li>
+      <li><a class="dropdown-item" href="{{ url_for('loads.bol', load_id=load.id) }}" target="_blank"><i class="bi bi-clipboard-check me-2"></i>Bill of lading / condition report</a></li>
+      <li><form method="post" action="{{ url_for('loads.duplicate', load_id=load.id) }}">{{ csrf() }}<button class="dropdown-item"><i class="bi bi-files me-2"></i>Copy as new load</button></form></li>
+      <li><a class="dropdown-item" href="{{ url_for('expenses.new', load=load.id) }}"><i class="bi bi-receipt me-2"></i>Add expense to this load</a></li>
+      {% if current_user.is_owner %}
+      <li><hr class="dropdown-divider"></li>
+      <li><form method="post" action="{{ url_for('loads.delete', load_id=load.id) }}" data-confirm="Delete load #{{ load.number }} and all its photos and payments? This can't be undone.">{{ csrf() }}<button class="dropdown-item text-danger"><i class="bi bi-trash me-2"></i>Delete load</button></form></li>
+      {% endif %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+
+{# ---------- the one big next step ---------- #}
+{% set can_inspect = current_user.is_staff or load.driver_id == current_user.id %}
+{% if can_inspect and load.status == 'assigned' and not load.inspection('pickup') %}
+  <a class="btn btn-primary w-100 big-action mb-3" href="{{ url_for('inspections.inspect', load_id=load.id, kind='pickup') }}"><i class="bi bi-camera-fill me-1"></i> Start pickup inspection</a>
+{% elif can_inspect and load.status == 'picked_up' and not load.inspection('delivery') %}
+  <a class="btn btn-success w-100 big-action mb-3" href="{{ url_for('inspections.inspect', load_id=load.id, kind='delivery') }}"><i class="bi bi-check2-circle me-1"></i> Deliver & get signature</a>
+{% endif %}
+
+{% if current_user.is_driver and load.payment_terms in ('cod', 'cop') and load.balance_due > 0 %}
+<div class="alert alert-warning d-flex align-items-center gap-2"><i class="bi bi-cash-stack fs-4"></i>
+  <div><b>Collect {{ load.balance_due|money }}</b> on {{ 'pickup' if load.payment_terms == 'cop' else 'delivery' }}.</div></div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card mb-3"><div class="card-body pb-0">
+      {{ stop('pickup', 'Pickup') }}
+      {{ stop('delivery', 'Delivery') }}
+    </div></div>
+
+    <div class="card mb-3">
+      <div class="card-header">Vehicles ({{ load.vehicles|length }})</div>
+      <ul class="list-group list-group-flush">
+      {% for v in load.vehicles %}
+        <li class="list-group-item">
+          <div class="fw-semibold">{{ v.title }}{% if v.color %} <span class="text-muted fw-normal">· {{ v.color }}</span>{% endif %}
+            {% if not v.operable %}<span class="badge bg-danger ms-1">INOP</span>{% endif %}</div>
+          <div class="small text-muted font-monospace">{{ v.vin or 'No VIN' }}{% if v.lot_number %} · Lot {{ v.lot_number }}{% endif %}</div>
+        </li>
+      {% else %}<li class="list-group-item text-muted">No vehicles listed.</li>{% endfor %}
+      </ul>
+    </div>
+
+    {% if load.dispatch_notes %}
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-chat-left-text me-1"></i> Notes for driver</div>
+      <div class="card-body" style="white-space:pre-wrap">{{ load.dispatch_notes }}</div></div>
+    {% endif %}
+    {% if current_user.is_staff and load.internal_notes %}
+    <div class="card mb-3"><div class="card-header"><i class="bi bi-lock me-1"></i> Internal notes</div>
+      <div class="card-body" style="white-space:pre-wrap">{{ load.internal_notes }}</div></div>
+    {% endif %}
+
+    <div class="card mb-3">
+      <div class="card-header">Condition reports</div>
+      <div class="list-group list-group-flush">
+        {% for kind, label in [('pickup', 'Pickup'), ('delivery', 'Delivery')] %}
+          {% set insp = load.inspection(kind) %}
+          {% if insp %}
+          <a class="list-group-item list-group-item-action d-flex align-items-center" href="{{ url_for('inspections.view', inspection_id=insp.id) }}">
+            <i class="bi bi-check-circle-fill text-success me-2"></i>
+            <div class="me-auto"><div class="fw-semibold">{{ label }}</div>
+              <div class="small text-muted">{{ insp.created_at|d }} · {{ insp.photos|length }} photos{% if insp.signer_name %} · signed by {{ insp.signer_name }}{% endif %}</div></div>
+            {% if insp.damage_notes %}<span class="badge bg-warning text-dark">Damage noted</span>{% endif %}
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a>
+          {% else %}
+          <div class="list-group-item text-muted"><i class="bi bi-circle me-2"></i>{{ label }} — not done yet</div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    {% if current_user.is_staff %}
+    <div class="card mb-3">
+      <div class="card-header">Money</div>
+      <div class="card-body">
+        <dl class="kv mb-3">
+          <dt>Price</dt><dd class="num fw-semibold">{{ load.price|money }}</dd>
+          <dt>Terms</dt><dd>{{ load.terms_label }}</dd>
+          <dt>Driver pay</dt><dd class="num">{{ load.driver_pay|money }}</dd>
+          {% if load.broker_fee %}<dt>Broker fee</dt><dd class="num">{{ load.broker_fee|money }}</dd>{% endif %}
+          <dt>Paid</dt><dd class="num">{{ load.amount_paid|money }}</dd>
+          <dt>Balance</dt><dd class="num fw-bold {{ 'text-danger' if load.balance_due > 0 and load.is_revenue }}">{{ load.balance_due|money }}</dd>
+          <dt>Customer</dt><dd>{% if load.customer %}<a href="{{ url_for('customers.detail', customer_id=load.customer.id) }}">{{ load.customer.name }}</a>{% else %}—{% endif %}{% if load.reference %} <span class="text-muted">· ref {{ load.reference }}</span>{% endif %}</dd>
+        </dl>
+        {% if load.payments %}
+        <ul class="list-unstyled small mb-3">
+          {% for p in load.payments %}
+          <li class="d-flex align-items-center border-top py-1">
+            <span class="me-auto">{{ p.paid_on|d }} · {{ p.method|upper }}{% if p.reference %} #{{ p.reference }}{% endif %}</span>
+            <span class="num me-2">{{ p.amount|money }}</span>
+            <form method="post" action="{{ url_for('loads.delete_payment', load_id=load.id, payment_id=p.id) }}" data-confirm="Remove this payment?">{{ csrf() }}<button class="btn btn-sm btn-link text-danger p-0" aria-label="Remove payment"><i class="bi bi-x-circle"></i></button></form>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if load.balance_due > 0 and load.status != 'cancelled' %}
+        <form method="post" action="{{ url_for('loads.add_payment', load_id=load.id) }}" class="row g-2">
+          {{ csrf() }}
+          <div class="col-5"><input class="form-control" name="amount" inputmode="decimal" placeholder="Amount" value="{{ '%.2f'|format(load.balance_due) }}"></div>
+          <div class="col-4"><select class="form-select" name="method">{% for m in methods %}<option value="{{ m }}">{{ m|upper }}</option>{% endfor %}</select></div>
+          <div class="col-3"><button class="btn btn-success w-100">Paid</button></div>
+          <div class="col-6"><input class="form-control form-control-sm" type="date" name="paid_on" aria-label="Date paid"></div>
+          <div class="col-6"><input class="form-control form-control-sm" name="reference" placeholder="Check # / ref"></div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Dispatch</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('loads.assign', load_id=load.id) }}" class="row g-2 mb-3">
+          {{ csrf() }}
+          <div class="col-12"><label class="form-label">Driver</label>
+            <select class="form-select" name="driver_id">
+              <option value="">— unassigned —</option>
+              {% for d in drivers %}<option value="{{ d.id }}" {{ 'selected' if d.id == load.driver_id }}>{{ d.name }}</option>{% endfor %}
+            </select></div>
+          <div class="col-6"><label class="form-label">Truck</label>
+            <select class="form-select" name="truck_id"><option value="">—</option>
+              {% for t in trucks %}<option value="{{ t.id }}" {{ 'selected' if t.id == load.truck_id }}>{{ t.unit }}</option>{% endfor %}
+            </select></div>
+          <div class="col-6"><label class="form-label">Driver pay</label>
+            <input class="form-control" name="driver_pay" inputmode="decimal" value="{{ load.driver_pay or '' }}"></div>
+          <div class="col-12"><button class="btn btn-primary w-100">Save assignment</button></div>
+        </form>
+        <form method="post" action="{{ url_for('loads.change_status', load_id=load.id) }}" class="d-flex gap-2">
+          {{ csrf() }}
+          <select class="form-select" name="status" aria-label="Status">
+            {% for k, label in statuses %}<option value="{{ k }}" {{ 'selected' if k == load.status }}>{{ label }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-outline-primary text-nowrap">Set status</button>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="card mb-3"><div class="card-body">
+      <dl class="kv">
+        <dt>Your pay</dt><dd class="num fw-semibold">{{ load.driver_pay|money }}</dd>
+        <dt>Payment</dt><dd>{{ load.terms_label }}</dd>
+        {% if load.truck %}<dt>Truck</dt><dd>{{ load.truck.unit }}</dd>{% endif %}
+      </dl>
+      <a class="btn btn-outline-primary w-100 mt-3" href="{{ url_for('expenses.new', load=load.id) }}"><i class="bi bi-receipt"></i> Log an expense for this load</a>
+    </div></div>
+    {% endif %}
+
+    <div class="card mb-3" id="activity">
+      <div class="card-header">Activity</div>
+      <div class="card-body pb-2">
+        <form method="post" action="{{ url_for('loads.add_note', load_id=load.id) }}" data-geo class="d-flex gap-2">
+          {{ csrf() }}<input type="hidden" name="lat"><input type="hidden" name="lng">
+          <input class="form-control" name="message" placeholder="Add an update…" maxlength="500" required>
+          <button class="btn btn-primary" aria-label="Post update"><i class="bi bi-send"></i></button>
+        </form>
+      </div>
+      <ul class="timeline">
+        {% for e in load.events %}
+        <li>
+          <div>{{ e.message }}</div>
+          <div class="when">{{ e.user.name if e.user else 'System' }} · {{ e.created_at|d }}
+            {% if e.lat %} · <a href="https://www.google.com/maps/search/?api=1&query={{ e.lat }},{{ e.lng }}" target="_blank" rel="noopener"><i class="bi bi-geo-alt"></i> location</a>{% endif %}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
