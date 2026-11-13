@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}All companies{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <h1 class="page-title me-auto">All companies <span class="text-muted fs-6">({{ rows|length }})</span></h1>
+  <span class="badge bg-dark">Platform admin</span>
+</div>
+<div class="card">
+  <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+    <thead><tr><th>Company</th><th>Owner</th><th>Signed up</th><th class="text-end">People</th><th class="text-end">Loads</th><th class="text-end">Expenses</th><th>Last sign-in</th><th>Last load</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td class="fw-semibold">{{ r.co.name }}{% if r.co.id == current_user.company_id %} <span class="badge bg-light text-dark border">yours</span>{% endif %}</td>
+        <td class="small">{% if r.owner %}{{ r.owner.name }}<div class="text-muted">{{ r.owner.email }}{% if r.owner.phone %} · {{ r.owner.phone }}{% endif %}</div>{% else %}—{% endif %}</td>
+        <td class="small">{{ r.co.created_at|d }}</td>
+        <td class="text-end">{{ r.users }}</td><td class="text-end">{{ r.loads }}</td><td class="text-end">{{ r.expenses }}</td>
+        <td class="small">{{ r.last_login|d }}</td><td class="small">{{ r.last_load|d }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+<p class="small text-muted mt-3">Only emails listed in <code>SUPERADMIN_EMAILS</code> can see this page. You see counts here, not other companies' loads or money.</p>
+{% endblock %}

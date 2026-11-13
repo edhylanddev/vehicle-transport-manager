@@ -1,11 +1,14 @@
+import re
+import threading
+import time
 from datetime import timedelta
 from urllib.parse import urlparse
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from ..extensions import db
-from ..models import User, utcnow
+from ..models import Company, User, ROLE_OWNER, utcnow
 
 bp = Blueprint("auth", __name__)
 
@@ -47,6 +50,76 @@ def login():
                 db.session.commit()
             flash("Wrong email or password.", "danger")
     return render_template("auth/login.html", email=email)
+
+
+# --------------------------------------------------------------- self-service sign-up
+
+_signup_lock = threading.Lock()
+_signups_by_ip = {}  # ip -> [timestamps]; per worker process, a light brake on scripted sign-ups
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _ip_allowed(ip):
+    now = time.time()
+    with _signup_lock:
+        recent = [t for t in _signups_by_ip.get(ip, []) if now - t < 86400]
+        _signups_by_ip[ip] = recent
+        return len(recent) < current_app.config["SIGNUPS_PER_IP_PER_DAY"]
+
+
+def _ip_record(ip):
+    with _signup_lock:
+        _signups_by_ip.setdefault(ip, []).append(time.time())
+
+
+@bp.route("/signup", methods=["GET", "POST"])
+def signup():
+    if not current_app.config["ALLOW_SIGNUP"]:
+        abort(404)
+    if current_user.is_authenticated:
+        return redirect(url_for("main.dashboard"))
+    form = {k: (request.form.get(k) or "").strip() for k in ("company", "name", "email", "phone")}
+    if request.method == "POST":
+        form["email"] = form["email"].lower()
+        pw = request.form.get("password") or ""
+        errors = []
+        if request.form.get("website"):  # honeypot: humans never see this field
+            abort(400)
+        if not form["company"]:
+            errors.append("Enter your company name.")
+        if not form["name"]:
+            errors.append("Enter your name.")
+        if not EMAIL_RE.match(form["email"]):
+            errors.append("Enter a valid email address.")
+        elif User.query.filter_by(email=form["email"]).first():
+            errors.append("There's already an account with that email. Sign in instead.")
+        if len(pw) < 8:
+            errors.append("Password must be at least 8 characters.")
+        elif pw != request.form.get("confirm_password"):
+            errors.append("Passwords don't match.")
+        ip = request.remote_addr or "?"
+        recent = Company.query.filter(Company.created_at >= utcnow() - timedelta(hours=1)).count()
+        if not errors and (not _ip_allowed(ip) or recent >= current_app.config["SIGNUPS_PER_HOUR"]):
+            errors.append("Too many new accounts right now. Please try again later.")
+        if errors:
+            for e in errors:
+                flash(e, "danger")
+            return render_template("auth/signup.html", form=form), 400
+        co = Company(name=form["company"][:150], phone=form["phone"][:40] or None, email=form["email"])
+        db.session.add(co)
+        db.session.flush()
+        u = User(company_id=co.id, name=form["name"][:120], email=form["email"], phone=form["phone"][:40] or None,
+                 role=ROLE_OWNER)
+        u.set_password(pw)
+        u.last_login_at = utcnow()
+        db.session.add(u)
+        db.session.commit()
+        _ip_record(ip)
+        current_app.logger.info("New company signed up: %s (%s)", co.name, u.email)
+        login_user(u, remember=True)
+        flash(f"Welcome, {u.name.split(' ')[0]}! Your account for {co.name} is ready.", "success")
+        return redirect(url_for("main.dashboard"))
+    return render_template("auth/signup.html", form=form)
 
 
 @bp.route("/logout", methods=["POST"])

@@ -6,6 +6,7 @@
     <a class="navbar-brand fw-bold text-brand" href="/"><i class="bi bi-truck-front-fill text-warning"></i> {{ APP_NAME }}</a>
     <div class="d-flex gap-2">
       <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.app_download') }}"><i class="bi bi-android2"></i> <span class="d-none d-sm-inline">Android app</span></a>
+      {% if config.ALLOW_SIGNUP %}<a class="btn btn-warning btn-sm fw-semibold d-none d-sm-inline-block" href="{{ url_for('auth.signup') }}">Create account</a>{% endif %}
       <a class="btn btn-primary btn-sm" href="{{ url_for('auth.login') }}">Sign in</a>
     </div>
   </div>
@@ -18,7 +19,9 @@
         <h1>Dispatch, inspect, deliver, get paid — all from your phone.</h1>
         <p class="lead mt-3">Business management built for vehicle transport companies: loads, drivers, photo condition reports with e-signatures, expenses, invoices, and profit reports in one place.</p>
         <div class="d-flex flex-wrap gap-2 mt-4">
-          <a class="btn btn-warning btn-lg fw-semibold" href="{{ url_for('auth.login') }}">Sign in</a>
+          {% if config.ALLOW_SIGNUP %}<a class="btn btn-warning btn-lg fw-semibold" href="{{ url_for('auth.signup') }}">Create free account</a>
+          <a class="btn btn-light btn-lg" href="{{ url_for('auth.login') }}">Sign in</a>
+          {% else %}<a class="btn btn-warning btn-lg fw-semibold" href="{{ url_for('auth.login') }}">Sign in</a>{% endif %}
           <a class="btn btn-outline-light btn-lg" href="{{ url_for('main.app_download') }}"><i class="bi bi-android2"></i> Get the Android app</a>
         </div>
       </div>
@@ -59,6 +62,6 @@
 </section>
 
 <footer class="py-4 text-center text-muted small">
-  &copy; {{ APP_NAME }} · <a href="{{ url_for('auth.login') }}">Sign in</a> · <a href="{{ url_for('main.app_download') }}">Android app</a>
+  &copy; {{ APP_NAME }} · {% if config.ALLOW_SIGNUP %}<a href="{{ url_for('auth.signup') }}">Create account</a> · {% endif %}<a href="{{ url_for('auth.login') }}">Sign in</a> · <a href="{{ url_for('main.app_download') }}">Android app</a>
 </footer>
 {% endblock %}

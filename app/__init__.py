@@ -41,9 +41,10 @@ def create_app(env=None):
             return user
         return None
 
-    from .blueprints import auth, main, loads, inspections, customers, expenses, team, trucks, reports, settings
+    from .blueprints import (admin, auth, main, loads, inspections, customers, expenses, team, trucks, reports,
+                             settings)
     for bp in (auth.bp, main.bp, loads.bp, inspections.bp, customers.bp, expenses.bp,
-               team.bp, trucks.bp, reports.bp, settings.bp):
+               team.bp, trucks.bp, reports.bp, settings.bp, admin.bp):
         app.register_blueprint(bp)
 
     from . import filters
@@ -55,7 +56,10 @@ def create_app(env=None):
     @app.context_processor
     def inject_globals():
         ua = request.headers.get("User-Agent", "")
+        from .blueprints.admin import is_superadmin
+        from flask_login import current_user
         return {
+            "IS_SUPERADMIN": is_superadmin(current_user),
             "APP_NAME": app.config["APP_NAME"],
             "IN_ANDROID_APP": "VTMApp/" in ua,
         }

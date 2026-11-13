@@ -8,7 +8,7 @@ from flask_login import current_user, login_required
 
 from ..extensions import db
 from ..helpers import today, nulls_last, scoped, visible_loads
-from ..models import Expense, Load, Upload
+from ..models import Expense, Load, Truck, Upload, User, ROLE_DRIVER
 
 bp = Blueprint("main", __name__)
 
@@ -114,7 +114,19 @@ def dashboard():
                     .order_by(*nulls_last(Load.pickup_date)).limit(10).all())
     on_road = (loads.filter(Load.status.in_(("assigned", "picked_up")))
                .order_by(*nulls_last(Load.pickup_date)).limit(15).all())
-    return render_template("main/dashboard_staff.html", counts=counts, month_rev=month_rev,
+    co = current_user.company
+    setup = None
+    if not counts:  # brand-new company: show a getting-started checklist
+        setup = [
+            ("Add your company details (MC/DOT, phone, address)", bool(co.mc_number or co.dot_number or co.address),
+             url_for("settings.company")) if current_user.is_owner else None,
+            ("Add a truck", scoped(Truck).count() > 0, url_for("trucks.new")),
+            ("Add your drivers", scoped(User).filter_by(role=ROLE_DRIVER).count() > 0,
+             url_for("team.new") if current_user.is_owner else url_for("team.index")),
+            ("Create your first load — or import a Central Dispatch sheet", False, url_for("loads.new")),
+        ]
+        setup = [x for x in setup if x]
+    return render_template("main/dashboard_staff.html", setup=setup, counts=counts, month_rev=month_rev,
                            month_exp=month_exp, month_profit=month_rev - month_exp,
                            receivable=receivable, unpaid=unpaid[:10], unpaid_count=len(unpaid),
                            needs_driver=needs_driver, on_road=on_road, month_name=start.strftime("%B"))

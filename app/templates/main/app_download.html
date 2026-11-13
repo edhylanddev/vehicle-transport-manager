@@ -15,7 +15,7 @@
       <li>Tap <b>Download the app</b> above. If Chrome warns that the file might be harmful, tap <b>Download anyway</b>.</li>
       <li>Open the downloaded file (pull down your notifications, or open <b>Files → Downloads</b>).</li>
       <li>If asked, allow your browser to <b>install unknown apps</b>, then go back and tap <b>Install</b>.</li>
-      <li>Open the app and sign in with the email and password from your company.</li>
+      <li>Open the app and sign in with the email and password from your company{% if config.ALLOW_SIGNUP %} — or tap <b>Create a company account</b> if you're new{% endif %}.</li>
     </ol>
     <p class="small text-muted mb-0">The app checks for updates when it opens and will offer the new version. When the camera or location is requested, tap <b>Allow</b> — it's used for vehicle photos and to stamp where pickups and deliveries happen.</p>
   {% else %}

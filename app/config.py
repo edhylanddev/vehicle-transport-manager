@@ -48,6 +48,13 @@ class Config:
     ANDROID_VERSION_CODE = int(os.environ.get("ANDROID_VERSION_CODE", "1"))
     ANDROID_VERSION_NAME = os.environ.get("ANDROID_VERSION_NAME", "1.0.0")
 
+    # Self-service sign-up (anyone can create a company account). Set ALLOW_SIGNUP=0 to close it.
+    ALLOW_SIGNUP = _bool("ALLOW_SIGNUP", True)
+    SIGNUPS_PER_IP_PER_DAY = int(os.environ.get("SIGNUPS_PER_IP_PER_DAY", "3"))
+    SIGNUPS_PER_HOUR = int(os.environ.get("SIGNUPS_PER_HOUR", "20"))
+    # Comma-separated emails that can see /admin (every company that has signed up)
+    SUPERADMIN_EMAILS = [e.strip().lower() for e in os.environ.get("SUPERADMIN_EMAILS", "").split(",") if e.strip()]
+
     LOGIN_MAX_ATTEMPTS = int(os.environ.get("LOGIN_MAX_ATTEMPTS", "8"))
     LOGIN_LOCK_MINUTES = int(os.environ.get("LOGIN_LOCK_MINUTES", "15"))
 

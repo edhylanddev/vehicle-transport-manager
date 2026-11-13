@@ -24,7 +24,11 @@
         </div>
         <button class="btn btn-primary w-100 big-action">Sign in</button>
       </form>
-      <p class="text-muted small text-center mt-3 mb-0">Forgot your password? Ask the company owner to reset it.</p>
+      {% if config.ALLOW_SIGNUP %}
+      <div class="text-center mt-3"><span class="small text-muted">New here?</span>
+        <a class="btn btn-outline-primary w-100 mt-1" href="{{ url_for('auth.signup') }}">Create a company account</a></div>
+      {% endif %}
+      <p class="text-muted small text-center mt-3 mb-0">Forgot your password? Drivers and office staff: ask your company owner to reset it.</p>
     </div>
   </div>
 </div>

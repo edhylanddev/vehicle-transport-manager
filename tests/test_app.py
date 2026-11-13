@@ -14,6 +14,8 @@ from app.models import Expense, Inspection, Load, Upload, User
 def app(tmp_path):
     app = create_app("testing")
     app.config["UPLOAD_FOLDER"] = str(tmp_path / "uploads")
+    from app.blueprints import auth as auth_bp
+    auth_bp._signups_by_ip.clear()  # per-process sign-up counter
 
     # The fixture keeps one app context open across requests (so tests can query the DB),
     # which would let flask-login's per-request user cache in `g` leak between clients.
@@ -430,3 +432,63 @@ def test_app_bridge_role_flag(app, client):
     assert 'id="sunrise-pref"' not in client.get("/account", headers=ua).get_data(as_text=True)
     client.post("/logout")
     assert "VTMApp.setSunrise(false)" in client.get("/login", headers=ua).get_data(as_text=True)
+
+
+# ---------------------------------------------------------------- self-service sign-up
+
+def _signup(client, email="new.owner@example.com", company="Blue Road Hauling", **extra):
+    data = {"company": company, "name": "Rita Newowner", "email": email, "phone": "(555) 010-9999",
+            "password": "longpassword", "confirm_password": "longpassword"}
+    data.update(extra)
+    return client.post("/signup", data=data)
+
+
+def test_signup_creates_separate_company(app, client):
+    from app.models import Company
+    existing = Load.query.first()
+    client.post("/logout")
+    assert "Create a company account" in client.get("/login").get_data(as_text=True)
+    r = _signup(client)
+    assert r.status_code == 302 and r.headers["Location"].endswith("/dashboard")
+    u = User.query.filter_by(email="new.owner@example.com").one()
+    assert u.role == "owner" and u.company.name == "Blue Road Hauling" and u.company_id != existing.company_id
+    # signed straight in, with the getting-started checklist and nothing from other companies
+    page = client.get("/dashboard").get_data(as_text=True)
+    assert "Getting started" in page and "Blue Road Hauling" in page and existing.customer.name not in page
+    assert client.get(f"/loads/{existing.id}").status_code == 404
+    assert client.get(f"/customers/{existing.customer_id}").status_code == 404
+    assert "No loads match" in client.get("/loads/?status=all").get_data(as_text=True)
+    # their own first load gets number 1001 like everyone else's
+    client.post("/loads/new", data={"price": "500", "pickup_city": "A", "delivery_city": "B", "status": "booked"})
+    mine = Load.query.filter_by(company_id=u.company_id).one()
+    assert mine.number == 1001
+    # the original company can't see it either
+    login(client, "owner@demo.test")
+    assert client.get(f"/loads/{mine.id}").status_code == 404
+    assert Company.query.count() == 2
+
+
+def test_signup_validation_and_spam_guards(app, client):
+    r = _signup(client, email="owner@demo.test")
+    assert r.status_code == 400 and "already an account" in r.get_data(as_text=True)
+    assert _signup(client, email="nope").status_code == 400
+    assert _signup(client, email="a@b.co", confirm_password="different!").status_code == 400
+    assert _signup(client, email="bot@b.co", website="http://spam").status_code == 400  # honeypot
+    assert not User.query.filter_by(email="bot@b.co").first()
+    app.config["SIGNUPS_PER_IP_PER_DAY"] = 1
+    assert _signup(client, email="first@b.co").status_code == 302
+    client.post("/logout")
+    r = _signup(client, email="second@b.co", company="Second Co")
+    assert r.status_code == 400 and "Too many new accounts" in r.get_data(as_text=True)
+    app.config["ALLOW_SIGNUP"] = False
+    assert client.get("/signup").status_code == 404
+    assert "Create a company account" not in client.get("/login").get_data(as_text=True)
+
+
+def test_superadmin_page(app, client):
+    login(client, "owner@demo.test")
+    assert client.get("/admin/").status_code == 404           # not on the list
+    app.config["SUPERADMIN_EMAILS"] = ["owner@demo.test"]
+    page = client.get("/admin/").get_data(as_text=True)
+    assert "All companies" in page and "Sunshine Auto Transport" in page
+    assert "All companies (admin)" in client.get("/dashboard").get_data(as_text=True)

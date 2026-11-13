@@ -39,6 +39,9 @@
           {% if current_user.is_owner %}
           <li><a class="dropdown-item" href="{{ url_for('settings.company') }}"><i class="bi bi-gear me-2"></i>Company settings</a></li>
           {% endif %}
+          {% if IS_SUPERADMIN %}
+          <li><a class="dropdown-item" href="{{ url_for('admin.companies') }}"><i class="bi bi-buildings me-2"></i>All companies (admin)</a></li>
+          {% endif %}
           {% if not IN_ANDROID_APP %}
           <li><a class="dropdown-item" href="{{ url_for('main.app_download') }}"><i class="bi bi-android2 me-2"></i>Get the Android app</a></li>
           {% endif %}

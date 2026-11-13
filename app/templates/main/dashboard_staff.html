@@ -7,6 +7,19 @@
   <a class="btn btn-warning fw-semibold d-sm-none" href="{{ url_for('loads.new') }}"><i class="bi bi-plus-lg"></i> Load</a>
 </div>
 
+{% if setup %}
+<div class="card mb-3 border-primary-subtle">
+  <div class="card-header"><i class="bi bi-flag text-primary me-1"></i> Getting started</div>
+  <div class="list-group list-group-flush">
+    {% for label, done, href in setup %}
+    <a class="list-group-item list-group-item-action d-flex align-items-center gap-2 {{ 'text-muted' if done }}" href="{{ href }}">
+      <i class="bi {{ 'bi-check-circle-fill text-success' if done else 'bi-circle' }}"></i>
+      <span class="me-auto {{ 'text-decoration-line-through' if done }}">{{ label }}</span><i class="bi bi-chevron-right small"></i></a>
+    {% endfor %}
+  </div>
+  <div class="card-footer small text-muted bg-white">Drivers sign in with the login you create for them under <b>Team</b>, on the website or the Android app at <b>{{ config.APP_URL }}/app</b>.</div>
+</div>
+{% endif %}
 <a class="d-flex align-items-center gap-2 mb-3 p-2 px-3 rounded-3 text-decoration-none text-white" style="background:linear-gradient(135deg,#f2a900,#f07b2c 60%,#c94a3a)" href="{{ url_for('reports.sunrise') }}">
   <i class="bi bi-sunrise fs-4"></i><span class="me-auto"><b>Sunrise report</b> — yesterday's business at a glance</span><i class="bi bi-chevron-right"></i></a>
 
