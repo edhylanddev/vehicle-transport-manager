@@ -15,6 +15,13 @@
     }
   }, true);
 
+  /* ---------- filter forms: apply as soon as a dropdown or date changes ---------- */
+  $$("form[data-autosubmit]").forEach((form) => {
+    form.addEventListener("change", (e) => {
+      if (e.target.matches("select, input[type=date]")) form.requestSubmit ? form.requestSubmit() : form.submit();
+    });
+  });
+
   /* ---------- GPS: fill hidden lat/lng on forms with data-geo ---------- */
   $$("form[data-geo]").forEach((form) => {
     const status = $("[data-geo-status]", form);
