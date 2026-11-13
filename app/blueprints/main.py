@@ -63,6 +63,8 @@ def uploaded_file(name):
     if up is None:
         abort(404)
     # drivers may only open files attached to their own loads (or that they uploaded)
+    if current_user.is_driver and name.startswith("dispatch-"):
+        abort(404)
     if current_user.is_driver and up.uploaded_by_id != current_user.id:
         if up.load_id is None or not visible_loads().filter(Load.id == up.load_id).first():
             abort(404)

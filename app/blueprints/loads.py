@@ -1,9 +1,13 @@
+import io
+import os
+import uuid
 from decimal import Decimal
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import or_
 
+from .. import central_dispatch
 from ..extensions import db
 from ..helpers import (today, f_date, f_float, f_int, f_money, f_str, get_load_or_404, get_or_404_scoped,
                        nulls_last, owner_required, scoped, staff_required, visible_loads)
@@ -98,7 +102,10 @@ def _fill_from_form(load):
         load.customer_id = get_or_404_scoped(Customer, cust_id).id
     new_customer = f_str("new_customer", 150)
     if new_customer and not cust_id:
-        c = Customer(company_id=current_user.company_id, name=new_customer, kind=f_str("new_customer_kind", 30) or "broker")
+        c = Customer(company_id=current_user.company_id, name=new_customer,
+                     kind=f_str("new_customer_kind", 30) or "broker",
+                     contact_name=f_str("new_customer_contact", 120), phone=f_str("new_customer_phone", 40),
+                     address=f_str("new_customer_address", 255))
         db.session.add(c)
         db.session.flush()
         load.customer_id = c.id
@@ -153,6 +160,69 @@ def _form_context(load):
                 drivers=drivers(), trucks=trucks(), terms=PAYMENT_TERMS, statuses=LOAD_STATUSES)
 
 
+@bp.route("/import", methods=["POST"])
+@staff_required
+def import_sheet():
+    """Upload a Central Dispatch dispatch sheet PDF -> pre-filled New load form (nothing saved yet)."""
+    fs = request.files.get("sheet")
+    if not fs or not fs.filename:
+        flash("Choose the dispatch sheet PDF first.", "warning")
+        return redirect(url_for("loads.new"))
+    raw = fs.read()
+    if not raw.startswith(b"%PDF"):
+        flash("That file isn't a PDF. Download the dispatch sheet from Central Dispatch as a PDF and try again.", "danger")
+        return redirect(url_for("loads.new"))
+    try:
+        data = central_dispatch.parse(io.BytesIO(raw))
+    except central_dispatch.NotADispatchSheet as e:
+        flash(str(e), "danger")
+        return redirect(url_for("loads.new"))
+
+    # keep the original PDF; it gets attached to the load when it's created
+    name = f"dispatch-{uuid.uuid4().hex}.pdf"
+    path = os.path.join(current_app.config["UPLOAD_FOLDER"], name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as fh:
+        fh.write(raw)
+    db.session.add(Upload(company_id=current_user.company_id, name=name, uploaded_by_id=current_user.id))
+    db.session.commit()
+
+    load = Load(company_id=current_user.company_id, status="booked", reference=data["reference"],
+                price=data["price"] or Decimal(0), payment_terms=data["payment_terms"] or "cod",
+                dispatch_notes=data["notes"])
+    for side in ("pickup", "delivery"):
+        d = data[side]
+        for f in ("name", "address", "city", "state", "zip", "contact", "phone", "date"):
+            setattr(load, f"{side}_{f}", d.get(f))
+    internal = [f"Imported from Central Dispatch (load {data['reference'] or '?'})."]
+    if data["payment_text"]:
+        internal.append("Payment terms on sheet: " + data["payment_text"])
+    cust = data["customer"]
+    if cust.get("mc"):
+        internal.append(f"Broker MC: {cust['mc']}")
+    load.internal_notes = "\n".join(internal)
+    vehicles = [Vehicle(**{k: v.get(k) for k in ("year", "make", "model", "color", "vin", "lot_number", "operable")})
+                for v in data["vehicles"]]
+
+    prefill = {"dispatch_sheet": name, "vehicles": vehicles}
+    existing = (scoped(Customer).filter(db.func.lower(Customer.name) == (cust.get("name") or "").lower()).first()
+                if cust.get("name") else None)
+    if existing:
+        load.customer_id = existing.id
+    elif cust.get("name"):
+        prefill.update(new_customer=cust["name"], new_customer_contact=cust.get("contact_name"),
+                       new_customer_phone=cust.get("phone"), new_customer_address=cust.get("address"))
+    dup = (scoped(Load).filter(Load.reference == data["reference"]).first() if data["reference"] else None)
+    if dup:
+        flash(f"Heads up: load #{dup.number} already has reference {data['reference']}. "
+              "This might be a duplicate.", "warning")
+    missing = [lbl for lbl, ok in (("price", data["price"]), ("pickup city", load.pickup_city),
+                                   ("delivery city", load.delivery_city), ("vehicles", vehicles)) if not ok]
+    if missing:
+        flash(f"Couldn't find on the sheet: {', '.join(missing)}. Please fill those in.", "warning")
+    return render_template("loads/form.html", prefill=prefill, **_form_context(load))
+
+
 @bp.route("/new", methods=["GET", "POST"])
 @staff_required
 def new():
@@ -169,6 +239,13 @@ def new():
         company.next_load_number += 1
         log(load, f"Load created ({load.status_label})", kind="status")
         db.session.add(load)
+        db.session.flush()
+        sheet = f_str("dispatch_sheet", 255)
+        if sheet and sheet.startswith("dispatch-"):
+            up = scoped(Upload).filter_by(name=sheet, load_id=None).first()
+            if up:
+                up.load_id = load.id
+                log(load, "Imported from a Central Dispatch dispatch sheet", kind="edit")
         db.session.commit()
         flash(f"Load #{load.number} created.", "success")
         return redirect(url_for("loads.detail", load_id=load.id))
@@ -241,7 +318,9 @@ def delete(load_id):
 @login_required
 def detail(load_id):
     load = get_load_or_404(load_id)
-    return render_template("loads/detail.html", load=load, statuses=LOAD_STATUSES,
+    sheets = (Upload.query.filter(Upload.load_id == load.id, Upload.name.like("dispatch-%")).all()
+              if current_user.is_staff else [])
+    return render_template("loads/detail.html", load=load, statuses=LOAD_STATUSES, sheets=sheets,
                            drivers=drivers() if current_user.is_staff else [],
                            trucks=trucks() if current_user.is_staff else [],
                            methods=PAYMENT_METHODS)

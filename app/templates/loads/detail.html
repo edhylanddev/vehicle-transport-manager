@@ -32,6 +32,7 @@
       <li><a class="dropdown-item" href="{{ url_for('loads.edit', load_id=load.id) }}"><i class="bi bi-pencil me-2"></i>Edit load</a></li>
       <li><a class="dropdown-item" href="{{ url_for('loads.invoice', load_id=load.id, mark=1) }}" target="_blank"><i class="bi bi-file-earmark-text me-2"></i>Invoice</a></li>
       <li><a class="dropdown-item" href="{{ url_for('loads.bol', load_id=load.id) }}" target="_blank"><i class="bi bi-clipboard-check me-2"></i>Bill of lading / condition report</a></li>
+      {% for sh in sheets %}<li><a class="dropdown-item" href="{{ url_for('main.uploaded_file', name=sh.name) }}" target="_blank"><i class="bi bi-file-earmark-pdf me-2"></i>Central Dispatch sheet</a></li>{% endfor %}
       <li><form method="post" action="{{ url_for('loads.duplicate', load_id=load.id) }}">{{ csrf() }}<button class="dropdown-item"><i class="bi bi-files me-2"></i>Copy as new load</button></form></li>
       <li><a class="dropdown-item" href="{{ url_for('expenses.new', load=load.id) }}"><i class="bi bi-receipt me-2"></i>Add expense to this load</a></li>
       {% if current_user.is_owner %}
@@ -120,6 +121,7 @@
           {% if load.broker_fee %}<dt>Broker fee</dt><dd class="num">{{ load.broker_fee|money }}</dd>{% endif %}
           <dt>Paid</dt><dd class="num">{{ load.amount_paid|money }}</dd>
           <dt>Balance</dt><dd class="num fw-bold {{ 'text-danger' if load.balance_due > 0 and load.is_revenue }}">{{ load.balance_due|money }}</dd>
+          {% if sheets %}<dt>Dispatch sheet</dt><dd>{% for sh in sheets %}<a href="{{ url_for('main.uploaded_file', name=sh.name) }}" target="_blank"><i class="bi bi-file-earmark-pdf"></i> PDF</a> {% endfor %}</dd>{% endif %}
           <dt>Customer</dt><dd>{% if load.customer %}<a href="{{ url_for('customers.detail', customer_id=load.customer.id) }}">{{ load.customer.name }}</a>{% else %}—{% endif %}{% if load.reference %} <span class="text-muted">· ref {{ load.reference }}</span>{% endif %}</dd>
         </dl>
         {% if load.payments %}

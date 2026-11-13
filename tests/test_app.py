@@ -289,3 +289,89 @@ def test_other_driver_cannot_set_miles(app, client):
     other = Load.query.filter_by(driver_id=uid("driver2@demo.test")).first()
     login(client, "driver@demo.test")
     assert client.post(f"/loads/{other.id}/miles", data={"miles": "5"}).status_code == 404
+
+
+# ---------------------------------------------------------------- Central Dispatch import
+
+def _sheet(**kw):
+    pytest.importorskip("reportlab")
+    from tests.cd_sample import build
+    return io.BytesIO(build(**kw))
+
+
+def test_parse_dispatch_sheet():
+    from decimal import Decimal
+    from app.central_dispatch import parse
+    d = parse(_sheet())
+    assert d["reference"] == "301999888"
+    assert d["customer"]["name"] == "Sunrise Auto Logistics LLC" and d["customer"]["mc"] == "MC000111"
+    assert (d["pickup"]["address"], d["pickup"]["city"], d["pickup"]["state"], d["pickup"]["zip"]) == \
+        ("1552 Example View Drive", "Dandridge", "TN", "37725")
+    assert d["pickup"]["name"] is None and d["pickup"]["contact"] == "Lot Desk"
+    assert d["delivery"]["city"] == "Balsam Grove" and d["delivery"]["phone"] == "(555) 010-5000"
+    assert str(d["pickup"]["date"]) == "2026-11-14" and str(d["delivery"]["date"]) == "2026-11-16"
+    assert d["price"] == Decimal("1250") and d["payment_terms"] == "cod"
+    assert [(v["year"], v["make"], v["model"], v["vin"], v["operable"]) for v in d["vehicles"]] == [
+        ("2019", "Honda", "Accord", "1HGCV1F30KA000001", True),
+        ("2021", "Ford", "F-150 XLT", "1FTEW1EP5MFA00002", False)]
+    assert d["vehicles"][1]["lot_number"] == "LOT-77" and d["vehicles"][0]["lot_number"] is None
+    assert "Wide Load" in d["notes"] and "Clear BOL" in d["notes"]
+
+
+def test_parse_variants():
+    from app.central_dispatch import parse
+    d = parse(_sheet(origin_name="Manheim Orlando",
+                     payment="Carrier will receive $900 via ACH within 5 business days of delivery.",
+                     total="$900.00",
+                     vehicles=[{"ymm": "1970 Gibson Boat And Trailer", "vin": "--", "type": "Boat",
+                                "color": "--", "lot": "--"}]))
+    assert d["pickup"]["name"] == "Manheim Orlando"
+    assert d["payment_terms"] == "invoice"
+    v = d["vehicles"][0]
+    assert (v["year"], v["make"], v["model"], v["vin"], v["color"]) == ("1970", "Gibson", "Boat And Trailer", None, None)
+
+
+def test_import_prefills_then_creates_load(app, client):
+    login(client, "office@demo.test")
+    r = client.post("/loads/import", data={"sheet": (_sheet(), "dispatch.pdf")}, content_type="multipart/form-data")
+    page = r.get_data(as_text=True)
+    assert r.status_code == 200 and "Filled in from the dispatch sheet" in page and "Couldn" not in page
+    assert 'value="Sunrise Auto Logistics LLC"' in page and 'value="1FTEW1EP5MFA00002"' in page
+    assert 'value="301999888"' in page and 'value="Dandridge"' in page
+    before = Load.query.count()
+    assert before == Load.query.count()  # nothing saved by the import itself
+
+    import re
+    sheet_name = re.search(r'name="dispatch_sheet" value="([^"]+)"', page).group(1)
+    r = client.post("/loads/new", data={
+        "dispatch_sheet": sheet_name, "customer_id": "", "new_customer": "Sunrise Auto Logistics LLC",
+        "new_customer_phone": "(555) 010-2001", "reference": "301999888", "price": "1250", "miles": "640",
+        "payment_terms": "cod", "pickup_city": "Dandridge", "pickup_state": "TN",
+        "delivery_city": "Balsam Grove", "delivery_state": "NC", "status": "booked",
+        "v_vin": ["1HGCV1F30KA000001"], "v_year": ["2019"], "v_make": ["Honda"], "v_model": ["Accord"],
+        "v_color": ["Black"], "v_lot_number": [""], "v_operable": ["1"]})
+    assert r.status_code == 302
+    load = Load.query.order_by(Load.id.desc()).first()
+    assert load.reference == "301999888" and load.customer.phone == "(555) 010-2001"
+    assert Upload.query.filter_by(name=sheet_name).one().load_id == load.id
+    assert "Central Dispatch sheet" in client.get(f"/loads/{load.id}").get_data(as_text=True)
+    assert client.get(f"/files/{sheet_name}").status_code == 200
+
+    # importing the same sheet again warns about a duplicate
+    r = client.post("/loads/import", data={"sheet": (_sheet(), "d.pdf")}, content_type="multipart/form-data")
+    assert "might be a duplicate" in r.get_data(as_text=True)
+
+    # drivers never get the dispatch sheet (it shows the price), even on their own load
+    load.driver_id = uid("driver@demo.test")
+    db.session.commit()
+    login(client, "driver@demo.test")
+    assert client.get(f"/files/{sheet_name}").status_code == 404
+
+
+def test_import_rejects_non_pdfs(app, client):
+    login(client, "office@demo.test")
+    r = client.post("/loads/import", data={"sheet": (io.BytesIO(b"hello"), "x.pdf")},
+                    content_type="multipart/form-data", follow_redirects=True)
+    assert "Download the dispatch sheet from Central Dispatch as a PDF" in r.get_data(as_text=True)
+    login(client, "driver@demo.test")
+    assert client.post("/loads/import", data={}).status_code == 403
