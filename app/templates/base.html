@@ -33,6 +33,7 @@
           {% if current_user.is_staff %}
           <li class="d-lg-none"><a class="dropdown-item" href="{{ url_for('team.index') }}"><i class="bi bi-people me-2"></i>Team</a></li>
           <li class="d-lg-none"><a class="dropdown-item" href="{{ url_for('trucks.index') }}"><i class="bi bi-truck me-2"></i>Trucks</a></li>
+          <li class="d-lg-none"><a class="dropdown-item" href="{{ url_for('reports.sunrise') }}"><i class="bi bi-sunrise me-2"></i>Sunrise report</a></li>
           <li class="d-lg-none"><a class="dropdown-item" href="{{ url_for('reports.index') }}"><i class="bi bi-bar-chart me-2"></i>Reports</a></li>
           {% endif %}
           {% if current_user.is_owner %}
@@ -56,7 +57,8 @@
         <a href="{{ url_for('expenses.index') }}" class="{{ 'active' if ep.startswith('expenses.') }}"><i class="bi bi-receipt"></i> {{ 'My expenses' if current_user.is_driver else 'Expenses' }}</a>
         {% if current_user.is_staff %}
         <a href="{{ url_for('customers.index') }}" class="{{ 'active' if ep.startswith('customers.') }}"><i class="bi bi-building"></i> Customers</a>
-        <a href="{{ url_for('reports.index') }}" class="{{ 'active' if ep.startswith('reports.') }}"><i class="bi bi-bar-chart-line"></i> Reports</a>
+        <a href="{{ url_for('reports.sunrise') }}" class="{{ 'active' if ep == 'reports.sunrise' }}"><i class="bi bi-sunrise"></i> Sunrise report</a>
+        <a href="{{ url_for('reports.index') }}" class="{{ 'active' if ep.startswith('reports.') and ep != 'reports.sunrise' }}"><i class="bi bi-bar-chart-line"></i> Reports</a>
         <div class="section">Company</div>
         <a href="{{ url_for('team.index') }}" class="{{ 'active' if ep.startswith('team.') }}"><i class="bi bi-people"></i> Team</a>
         <a href="{{ url_for('trucks.index') }}" class="{{ 'active' if ep.startswith('trucks.') }}"><i class="bi bi-truck"></i> Trucks</a>
@@ -89,6 +91,16 @@
 {% endif %}
 <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}?v=3"></script>
+{% if IN_ANDROID_APP %}
+<script>
+  /* Tell the Android app whether this login gets the 6 AM Sunrise report (owner/office only). */
+  try {
+    if (window.VTMApp && typeof VTMApp.setSunrise === "function") {
+      VTMApp.setSunrise({{ 'true' if current_user.is_authenticated and current_user.is_staff else 'false' }});
+    }
+  } catch (e) {}
+</script>
+{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>

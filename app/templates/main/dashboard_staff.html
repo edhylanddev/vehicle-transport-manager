@@ -7,6 +7,9 @@
   <a class="btn btn-warning fw-semibold d-sm-none" href="{{ url_for('loads.new') }}"><i class="bi bi-plus-lg"></i> Load</a>
 </div>
 
+<a class="d-flex align-items-center gap-2 mb-3 p-2 px-3 rounded-3 text-decoration-none text-white" style="background:linear-gradient(135deg,#f2a900,#f07b2c 60%,#c94a3a)" href="{{ url_for('reports.sunrise') }}">
+  <i class="bi bi-sunrise fs-4"></i><span class="me-auto"><b>Sunrise report</b> — yesterday's business at a glance</span><i class="bi bi-chevron-right"></i></a>
+
 <div class="row g-2 g-md-3 mb-3">
   <div class="col-6 col-lg-3"><div class="card kpi h-100">
     <div class="label">{{ month_name }} revenue</div><div class="value">{{ month_rev|money }}</div>

@@ -375,3 +375,58 @@ def test_import_rejects_non_pdfs(app, client):
     assert "Download the dispatch sheet from Central Dispatch as a PDF" in r.get_data(as_text=True)
     login(client, "driver@demo.test")
     assert client.post("/loads/import", data={}).status_code == 403
+
+
+# ---------------------------------------------------------------- Sunrise report
+
+def test_sunrise_report(app, client):
+    from datetime import datetime, time, timedelta, timezone
+    from decimal import Decimal
+    from zoneinfo import ZoneInfo
+    from app.helpers import today
+    from app.models import Payment
+    yday = today() - timedelta(days=1)
+    noon_utc = (datetime.combine(yday, time(12), tzinfo=ZoneInfo(app.config["APP_TIMEZONE"]))
+                .astimezone(timezone.utc).replace(tzinfo=None))
+    # wipe timestamps so only our load counts as yesterday's delivery
+    for l in Load.query.all():
+        l.delivered_at = l.picked_up_at = None
+    load = Load.query.filter_by(driver_id=uid("driver@demo.test")).first()
+    Expense.query.filter_by(load_id=load.id).delete()
+    load.status, load.delivered_at, load.picked_up_at = "delivered", noon_utc, noon_utc - timedelta(days=1)
+    load.price, load.miles, load.driver_pay, load.broker_fee = Decimal("2000"), 800, Decimal("600"), None
+    load.reference = "SUNRISE-TEST"
+    db.session.add(Expense(company_id=load.company_id, spent_on=yday, category="fuel", amount=Decimal("400"),
+                           gallons=Decimal("100"), load_id=load.id, user_id=load.driver_id))
+    db.session.add(Payment(load_id=load.id, amount=Decimal("750"), paid_on=yday, method="check"))
+    db.session.commit()
+
+    login(client, "owner@demo.test")
+    page = client.get("/reports/sunrise").get_data(as_text=True)
+    assert "Yesterday" in page and "Sunrise report" in page
+    assert "$2,000.00" in page             # delivered revenue
+    assert "$1,000.00" in page             # profit: 2000 - 400 fuel - 600 driver pay
+    assert "$1.25/mi cost" in page         # 1000 / 800 mi
+    assert "$750.00" in page               # payment collected
+    assert "Carlos Driver" in page and "100.0 gal" in page
+    # other days and bad dates don't break it
+    assert client.get(f"/reports/sunrise?date={yday - timedelta(days=30)}").status_code == 200
+    assert client.get("/reports/sunrise?date=2999-01-01").status_code == 200
+    assert client.get("/reports/sunrise?date=junk").status_code == 200
+
+    login(client, "driver@demo.test")
+    assert client.get("/reports/sunrise").status_code == 403
+
+
+def test_app_bridge_role_flag(app, client):
+    ua = {"User-Agent": "Mozilla/5.0 (Linux; Android 14) VTMApp/1.1.0"}
+    login(client, "owner@demo.test")
+    assert "VTMApp.setSunrise(true)" in client.get("/dashboard", headers=ua).get_data(as_text=True)
+    assert 'id="sunrise-pref"' in client.get("/account", headers=ua).get_data(as_text=True)
+    assert "VTMApp.setSunrise" not in client.get("/dashboard").get_data(as_text=True)  # plain browser
+    login(client, "driver@demo.test")
+    page = client.get("/dashboard", headers=ua).get_data(as_text=True)
+    assert "VTMApp.setSunrise(false)" in page
+    assert 'id="sunrise-pref"' not in client.get("/account", headers=ua).get_data(as_text=True)
+    client.post("/logout")
+    assert "VTMApp.setSunrise(false)" in client.get("/login", headers=ua).get_data(as_text=True)

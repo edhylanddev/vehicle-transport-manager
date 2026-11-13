@@ -62,6 +62,8 @@ class MainActivity : Activity() {
     private val baseHost: String by lazy { Uri.parse(BuildConfig.BASE_URL).host ?: "" }
 
     companion object {
+        const val EXTRA_OPEN_PATH = "open_path"
+        private const val REQ_NOTIFICATIONS = 13
         private const val REQ_FILE = 10
         private const val REQ_CAMERA_PERM = 11
         private const val REQ_LOCATION_PERM = 12
@@ -86,13 +88,34 @@ class MainActivity : Activity() {
 
         configureWebView()
 
-        val restored = savedInstanceState?.let { webView.restoreState(it) }
+        val openPath = pathFrom(intent)
+        val restored = if (openPath == null) savedInstanceState?.let { webView.restoreState(it) } else null
         if (restored == null) {
-            webView.loadUrl(BuildConfig.BASE_URL + "/dashboard")
+            webView.loadUrl(BuildConfig.BASE_URL + (openPath ?: "/dashboard"))
         }
 
         registerBackHandler()
         checkForUpdate()
+        Sunrise.sync(applicationContext) // re-arm the 6 AM alarm (e.g. after an app update)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pathFrom(intent)?.let { webView.loadUrl(BuildConfig.BASE_URL + it) }
+    }
+
+    /** Only same-site paths from our own notification, e.g. "/reports/sunrise". */
+    private fun pathFrom(i: Intent?): String? {
+        val p = i?.getStringExtra(EXTRA_OPEN_PATH) ?: return null
+        return if (p.startsWith("/") && !p.startsWith("//")) p else null
+    }
+
+    private fun askNotificationPermissionIfNeeded() {
+        if (Sunrise.shouldAskPermission(applicationContext)) {
+            Sunrise.markAsked(applicationContext)
+            requestPermissions(arrayOf(Sunrise.POST_NOTIFICATIONS), REQ_NOTIFICATIONS)
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -358,6 +381,23 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun appVersion(): String = BuildConfig.VERSION_NAME
+
+        /** Called by every page: is the signed-in user owner/office (gets the Sunrise report)? */
+        @JavascriptInterface
+        fun setSunrise(isStaff: Boolean) {
+            Sunrise.setStaff(applicationContext, isStaff)
+            if (isStaff) runOnUiThread { askNotificationPermissionIfNeeded() }
+        }
+
+        @JavascriptInterface
+        fun getSunrisePref(): Boolean = Sunrise.isOptedIn(applicationContext)
+
+        /** The on/off switch under My account. */
+        @JavascriptInterface
+        fun setSunrisePref(on: Boolean) {
+            Sunrise.setOptedIn(applicationContext, on)
+            if (on) runOnUiThread { askNotificationPermissionIfNeeded() }
+        }
     }
 
     // ------------------------------------------------------------------ back button

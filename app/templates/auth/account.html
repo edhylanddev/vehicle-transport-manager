@@ -1,9 +1,31 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf, field %}
 {% block title %}My account{% endblock %}
+{% block scripts %}
+<script>
+  (function () {
+    var box = document.getElementById("sunrise-pref");
+    if (!box || !window.VTMApp || typeof VTMApp.getSunrisePref !== "function") return; // older app version
+    var t = document.getElementById("sunrise-toggle");
+    t.checked = VTMApp.getSunrisePref();
+    t.addEventListener("change", function () { VTMApp.setSunrisePref(t.checked); });
+    box.hidden = false;
+  })();
+</script>
+{% endblock %}
 {% block content %}
 <h1 class="page-title mb-3">My account</h1>
 <div class="row g-3">
+  {% if current_user.is_staff and IN_ANDROID_APP %}
+  <div class="col-12" id="sunrise-pref" hidden>
+    <div class="card"><div class="card-body d-flex align-items-center gap-3">
+      <i class="bi bi-sunrise fs-3 text-warning"></i>
+      <div class="me-auto"><div class="fw-semibold">Sunrise report notification</div>
+        <div class="small text-muted">Every morning at 6:00, a summary of yesterday's business. <a href="{{ url_for('reports.sunrise') }}">Open today's</a></div></div>
+      <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="sunrise-toggle" style="width:3em;height:1.5em" aria-label="Sunrise report notification"></div>
+    </div></div>
+  </div>
+  {% endif %}
   <div class="col-lg-6">
     <div class="card"><div class="card-header">Profile</div><div class="card-body">
       <form method="post" class="row g-3">

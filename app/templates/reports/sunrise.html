@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Sunrise report · {{ day|d }}{% endblock %}
+{% block head %}
+<style>
+  .sunrise-hero { background: linear-gradient(135deg, #f2a900 0%, #f07b2c 55%, #c94a3a 100%); color: #fff; border-radius: 16px; padding: 1.1rem 1.2rem; position: relative; overflow: hidden; }
+  .sunrise-hero::after { content: ""; position: absolute; right: -40px; bottom: -70px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255,255,255,.18); }
+  .sunrise-hero .date { font-size: .85rem; opacity: .9; }
+  .sunrise-hero h1 { font-size: 1.45rem; font-weight: 800; margin: .1rem 0 .2rem; }
+  .sunrise-hero .nav a { color: #fff; text-decoration: none; opacity: .9; }
+  .stat { padding: .8rem .9rem; }
+  .stat .k { font-size: .74rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .stat .v { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .stat .s { font-size: .78rem; color: var(--muted); }
+  .attn li { padding: .55rem 1rem; border-bottom: 1px solid var(--line); list-style: none; }
+  .attn li:last-child { border-bottom: 0; }
+</style>
+{% endblock %}
+{% block content %}
+{% from "_macros.html" import load_item %}
+
+<div class="sunrise-hero mb-3">
+  <div class="d-flex align-items-start">
+    <div class="me-auto">
+      <div class="date"><i class="bi bi-sunrise"></i> Sunrise report</div>
+      <h1>{{ 'Yesterday' if is_yesterday else day.strftime('%A') }}, {{ day.strftime('%b %-d') }}</h1>
+      <div class="small">
+        {% if s.delivered or s.picked_up or s.booked or s.payment_count %}
+          {{ s.delivered }} delivered · {{ s.picked_up }} picked up · {{ s.booked }} booked · {{ s.payments|money }} collected
+        {% else %}A quiet day — nothing delivered, picked up, booked or paid.{% endif %}
+      </div>
+    </div>
+    <div class="nav d-flex gap-3 fs-5 position-relative" style="z-index:1">
+      <a href="{{ url_for('reports.sunrise', date=prev_day) }}" aria-label="Previous day"><i class="bi bi-chevron-left"></i></a>
+      {% if next_day %}<a href="{{ url_for('reports.sunrise', date=next_day) }}" aria-label="Next day"><i class="bi bi-chevron-right"></i></a>{% endif %}
+    </div>
+  </div>
+</div>
+
+{# ---------- the numbers ---------- #}
+<div class="row g-2 mb-3">
+  <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="k">Delivered</div>
+    <div class="v">{{ s.revenue|money }}</div><div class="s">{{ s.delivered }} load{{ 's' if s.delivered != 1 }} · {{ s.cars }} car{{ 's' if s.cars != 1 }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="k">Profit on those jobs</div>
+    <div class="v {{ 'text-danger' if s.profit < 0 }}">{{ s.profit|money }}</div>
+    <div class="s">{% if s.cost_per_mile is not none %}{{ s.cost_per_mile|money }}/mi cost · {{ s.profit_per_mile|money }}/mi profit{% else %}costs {{ s.cost|money }}{% endif %}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="k">Payments in</div>
+    <div class="v">{{ s.payments|money }}</div><div class="s">{{ s.payment_count }} payment{{ 's' if s.payment_count != 1 }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="k">Spent</div>
+    <div class="v">{{ s.expenses|money }}</div><div class="s">{% if s.gallons %}{{ s.gallons|round(1) }} gal fuel{% else %}all expenses{% endif %}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="k">New loads booked</div>
+    <div class="v">{{ s.booked }}</div><div class="s">{{ s.booked_value|money }} in work</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat h-100"><div class="k">Owed to you</div>
+    <div class="v">{{ receivable|money }}</div><div class="s">{{ unpaid_count }} unpaid{% if overdue %} · <span class="text-danger">{{ overdue|length }} over 30 days</span>{% endif %}</div></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    {# ---------- needs attention ---------- #}
+    {% set attention = (late|length) + (damage|length) + (1 if needs_driver else 0) + (1 if pending_exp else 0) + (overdue|length) %}
+    {% if attention %}
+    <div class="card mb-3 border-warning-subtle">
+      <div class="card-header"><i class="bi bi-exclamation-triangle text-warning me-1"></i> Needs attention</div>
+      <ul class="attn p-0 m-0">
+        {% for l in late %}<li><a href="{{ url_for('loads.detail', load_id=l.id) }}">#{{ l.number }}</a> was due for delivery {{ l.delivery_date|short_date }} and is still on the truck{% if l.driver %} ({{ l.driver.name.split(' ')[0] }}){% endif %}.</li>{% endfor %}
+        {% for e in damage %}<li><a href="{{ url_for('loads.detail', load_id=e.load_id) }}">#{{ e.load.number }}</a>: {{ e.message }}.</li>{% endfor %}
+        {% if needs_driver %}<li><a href="{{ url_for('loads.index', status='booked') }}">{{ needs_driver }} booked load{{ 's' if needs_driver != 1 }}</a> {{ 'have' if needs_driver != 1 else 'has' }} no driver yet.</li>{% endif %}
+        {% if pending_exp %}<li><a href="{{ url_for('expenses.index', pending=1, start='2000-01-01') }}">{{ pending_exp }} driver expense{{ 's' if pending_exp != 1 }}</a> waiting for review.</li>{% endif %}
+        {% for l in overdue[:5] %}<li><a href="{{ url_for('loads.detail', load_id=l.id) }}">#{{ l.number }}</a> — {{ l.balance_due|money }} from {{ l.customer.name if l.customer else 'no customer' }}, delivered {{ l.revenue_date|short_date }}.</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {# ---------- delivered jobs ---------- #}
+    <div class="card mb-3">
+      <div class="card-header">Delivered</div>
+      {% if jobs %}
+      {% for l, jc in jobs %}
+      <a class="load-item" href="{{ url_for('loads.detail', load_id=l.id) }}#job-cost">
+        <div class="d-flex justify-content-between gap-2">
+          <div class="min-w-0">
+            <div class="route text-truncate">{{ l.route_short }}</div>
+            <div class="meta text-truncate">#{{ l.number }} · {{ l.vehicles_short }}{% if l.driver %} · {{ l.driver.name.split(' ')[0] }}{% endif %}</div>
+            <div class="meta">Revenue {{ jc.revenue|money }} · cost {{ jc.total|money }}{% if jc.cost_per_mile is not none %} ({{ jc.cost_per_mile|money }}/mi){% endif %}</div>
+          </div>
+          <div class="text-end flex-shrink-0"><div class="num fw-semibold {{ 'text-danger' if jc.profit < 0 else 'text-success' }}">{{ jc.profit|money }}</div><div class="small text-muted">profit</div></div>
+        </div>
+      </a>
+      {% endfor %}
+      {% else %}<div class="list-empty">No deliveries.</div>{% endif %}
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="card mb-3 h-100"><div class="card-header">Picked up</div>
+          {% for l in picked_up %}{{ load_item(l) }}{% else %}<div class="list-empty">None.</div>{% endfor %}</div>
+      </div>
+      <div class="col-md-6">
+        <div class="card mb-3 h-100"><div class="card-header">Booked</div>
+          {% for l in booked %}{{ load_item(l) }}{% else %}<div class="list-empty">None.</div>{% endfor %}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    {# ---------- today ---------- #}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-calendar-day me-1"></i> On the schedule {{ 'today' if is_yesterday else 'next day' }} ({{ today.strftime('%a %b %-d') }})</div>
+      <div class="card-body py-2 small text-muted">{{ pickups_today|length }} pickup{{ 's' if pickups_today|length != 1 }} · {{ deliveries_today|length }} deliver{{ 'ies' if deliveries_today|length != 1 else 'y' }}</div>
+      {% for l in pickups_today %}{{ load_item(l) }}{% endfor %}
+      {% for l in deliveries_today %}{{ load_item(l) }}{% endfor %}
+    </div>
+
+    <div class="card mb-3"><div class="card-header">Payments received</div>
+      <ul class="list-group list-group-flush">
+        {% for p in payments %}<li class="list-group-item d-flex small"><span class="me-auto"><a href="{{ url_for('loads.detail', load_id=p.load_id) }}">#{{ p.load.number }}</a> · {{ p.load.customer.name if p.load.customer else '' }} · {{ p.method|upper }}</span><span class="num">{{ p.amount|money }}</span></li>
+        {% else %}<li class="list-group-item small text-muted">None.</li>{% endfor %}
+      </ul></div>
+
+    <div class="card mb-3"><div class="card-header">Spending</div>
+      <ul class="list-group list-group-flush">
+        {% for label, amt in by_cat %}<li class="list-group-item d-flex small"><span class="me-auto">{{ label }}</span><span class="num">{{ amt|money }}</span></li>
+        {% else %}<li class="list-group-item small text-muted">Nothing logged.</li>{% endfor %}
+      </ul></div>
+
+    {% if people %}
+    <div class="card mb-3"><div class="card-header">Drivers</div>
+      <ul class="list-group list-group-flush">
+        {% for p in people %}<li class="list-group-item small"><b>{{ p.name }}</b><div class="text-muted">
+          {{ p.delivered }} delivered{% if p.cars %} ({{ p.cars }} car{{ 's' if p.cars != 1 }}){% endif %} · {{ p.picked }} picked up{% if p.fuel %} · {{ p.fuel|money }} fuel{% if p.gallons %}, {{ p.gallons|round(1) }} gal{% endif %}{% endif %}</div></li>
+        {% endfor %}
+      </ul></div>
+    {% endif %}
+  </div>
+</div>
+
+{% if IN_ANDROID_APP %}
+<p class="small text-muted mt-2"><i class="bi bi-bell"></i> You get this report every morning at 6:00. Turn it off under <a href="{{ url_for('auth.account') }}">My account</a>.</p>
+{% endif %}
+{% endblock %}
