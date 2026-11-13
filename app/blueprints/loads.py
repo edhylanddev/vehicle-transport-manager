@@ -8,7 +8,7 @@ from ..extensions import db
 from ..helpers import (today, f_date, f_float, f_int, f_money, f_str, get_load_or_404, get_or_404_scoped,
                        nulls_last, owner_required, scoped, staff_required, visible_loads)
 from ..models import (LOAD_STATUSES, OPEN_STATUSES, PAYMENT_METHODS, PAYMENT_TERMS, STATUS_LABELS,
-                      TERMS_LABELS, Company, Customer, Load, LoadEvent, Payment, Truck, User, Vehicle,
+                      TERMS_LABELS, Company, Customer, Load, LoadEvent, Payment, Truck, Upload, User, Vehicle,
                       ROLE_DRIVER, utcnow)
 
 bp = Blueprint("loads", __name__, url_prefix="/loads")
@@ -224,6 +224,11 @@ def duplicate(load_id):
 def delete(load_id):
     load = get_load_or_404(load_id)
     num = load.number
+    # keep expenses (they're real money spent) and stored files; just unlink them
+    for e in list(load.expenses):
+        e.load_id = None
+    Upload.query.filter_by(load_id=load.id).update({"load_id": None})
+    db.session.flush()
     db.session.delete(load)
     db.session.commit()
     flash(f"Load #{num} deleted.", "success")
@@ -280,6 +285,25 @@ def assign(load_id):
     db.session.commit()
     flash("Assignment saved.", "success")
     return redirect(url_for("loads.detail", load_id=load.id))
+
+
+@bp.route("/<int:load_id>/miles", methods=["POST"])
+@login_required
+def set_miles(load_id):
+    """Staff or the assigned driver can record the trip's actual miles."""
+    load = get_load_or_404(load_id)
+    if not (current_user.is_staff or load.driver_id == current_user.id):
+        abort(403)
+    miles = f_int("miles")
+    if miles is None or miles <= 0 or miles > 10000:
+        flash("Enter the trip miles (a number above 0).", "warning")
+    else:
+        old = load.miles
+        load.miles = miles
+        log(load, f"Miles set to {miles:,}" + (f" (was {old:,})" if old else ""), kind="edit")
+        db.session.commit()
+        flash("Miles saved.", "success")
+    return redirect(url_for("loads.detail", load_id=load.id) + "#job-cost")
 
 
 @bp.route("/<int:load_id>/note", methods=["POST"])

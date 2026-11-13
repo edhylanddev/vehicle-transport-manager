@@ -208,6 +208,8 @@ class Load(TimestampMixin, db.Model):
                              order_by="LoadEvent.created_at.desc()")
     inspections = db.relationship("Inspection", back_populates="load", cascade="all, delete-orphan",
                                   order_by="Inspection.created_at")
+    expenses = db.relationship("Expense", back_populates="load",
+                               order_by="Expense.spent_on")
 
     __table_args__ = (db.UniqueConstraint("company_id", "number", name="uq_load_company_number"),)
 
@@ -242,6 +244,37 @@ class Load(TimestampMixin, db.Model):
         first = self.vehicles[0].title
         more = len(self.vehicles) - 1
         return first + (f" +{more}" if more else "")
+
+    def job_costs(self):
+        """Actual cost of this job from the expenses logged against it.
+
+        Driver pay entered on the load counts as a cost unless a driver_pay
+        expense was also logged for this load (then only the logged one counts).
+        """
+        exps = list(self.expenses)
+        fuel = [e for e in exps if e.category == "fuel"]
+        fuel_cost = sum((e.amount for e in fuel), Decimal(0))
+        gallons = sum((e.gallons or Decimal(0) for e in fuel), Decimal(0))
+        logged_pay = sum((e.amount for e in exps if e.category == "driver_pay"), Decimal(0))
+        other = sum((e.amount for e in exps if e.category not in ("fuel", "driver_pay")), Decimal(0))
+        driver_pay = logged_pay if logged_pay else (self.driver_pay or Decimal(0))
+        broker_fee = self.broker_fee or Decimal(0)
+        total = fuel_cost + other + driver_pay + broker_fee
+        revenue = self.price or Decimal(0)
+        miles = self.miles or 0
+
+        def per_mile(v):
+            return (Decimal(v) / miles).quantize(Decimal("0.01")) if miles else None
+
+        return {
+            "expenses": exps, "fuel_stops": len(fuel), "fuel_cost": fuel_cost, "gallons": gallons,
+            "avg_price_per_gallon": (fuel_cost / gallons).quantize(Decimal("0.001")) if gallons else None,
+            "mpg": (Decimal(miles) / gallons).quantize(Decimal("0.1")) if gallons and miles else None,
+            "other": other, "driver_pay": driver_pay, "broker_fee": broker_fee, "total": total,
+            "revenue": revenue, "profit": revenue - total, "miles": miles,
+            "fuel_per_mile": per_mile(fuel_cost), "cost_per_mile": per_mile(total),
+            "revenue_per_mile": per_mile(revenue), "profit_per_mile": per_mile(revenue - total),
+        }
 
     @property
     def revenue_date(self):
@@ -378,8 +411,14 @@ class Expense(TimestampMixin, db.Model):
     approved = db.Column(db.Boolean, default=True, nullable=False)
 
     truck = db.relationship("Truck")
-    load = db.relationship("Load")
+    load = db.relationship("Load", back_populates="expenses")
     user = db.relationship("User")
+
+    @property
+    def price_per_gallon(self):
+        if self.category == "fuel" and self.gallons:
+            return (self.amount / self.gallons).quantize(Decimal("0.001"))
+        return None
 
     @property
     def category_label(self):

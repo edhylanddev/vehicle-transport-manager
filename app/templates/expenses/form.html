@@ -9,6 +9,7 @@
 <div class="card" style="max-width:640px"><div class="card-body">
 <form method="post" enctype="multipart/form-data" class="row g-3" id="expense-form">
   {{ csrf() }}
+  <input type="hidden" name="back" value="{{ request.values.get('back', '') }}">
   <div class="col-12">
     <label class="form-label">Category</label>
     <div class="filter-chips flex-wrap">
@@ -23,8 +24,10 @@
   {{ field('vendor', 'Where', e.vendor, col='col-12', placeholder='Pilot, Love\'s, SunPass…') }}
   <div class="col-12 fuel-only">
     <div class="row g-3">
-      {{ field('gallons', 'Gallons', e.gallons, col='col-6', attrs='inputmode="decimal"') }}
-      {{ field('odometer', 'Odometer', e.odometer, col='col-6', attrs='inputmode="numeric"') }}
+      {{ field('gallons', 'Gallons', e.gallons|round(3) if e.gallons else '', col='col-4', attrs='inputmode="decimal"') }}
+      {{ field('price_per_gallon', 'Price / gallon', e.price_per_gallon if e.price_per_gallon else '', col='col-4', attrs='inputmode="decimal" placeholder="3.89"') }}
+      {{ field('odometer', 'Truck odometer', e.odometer, col='col-4', attrs='inputmode="numeric"') }}
+      <div class="col-12 small text-muted" id="fuel-hint">Enter gallons and price per gallon and the amount fills in, or enter the amount and gallons and the price per gallon fills in.</div>
     </div>
   </div>
   <div class="col-6"><label class="form-label">Truck</label>
@@ -63,6 +66,15 @@
   const f = document.getElementById('expense-form'), box = f.querySelector('.fuel-only');
   const sync = () => box.classList.toggle('d-none', (f.querySelector('input[name=category]:checked')||{}).value !== 'fuel');
   f.addEventListener('change', sync); sync();
+  // fuel math: amount = gallons x price/gal (or price/gal = amount / gallons)
+  const num = (n) => parseFloat((f.elements[n].value || '').replace(/[$,]/g, ''));
+  let last = null;
+  ['amount', 'gallons', 'price_per_gallon'].forEach((n) => f.elements[n].addEventListener('input', () => { last = n; calc(); }));
+  function calc() {
+    const a = num('amount'), g = num('gallons'), p = num('price_per_gallon');
+    if (g > 0 && p > 0 && last !== 'amount') f.elements['amount'].value = (g * p).toFixed(2);
+    else if (a > 0 && g > 0 && last !== 'price_per_gallon') f.elements['price_per_gallon'].value = (a / g).toFixed(3);
+  }
 })();
 </script>
 {% endblock %}

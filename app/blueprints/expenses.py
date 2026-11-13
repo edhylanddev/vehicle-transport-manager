@@ -60,14 +60,26 @@ def index():
                            categories=EXPENSE_CATEGORIES, people=people, pending=pending)
 
 
+def f_gallons(name):
+    raw = (request.form.get(name) or "").replace("$", "").replace(",", "").strip()
+    try:
+        v = Decimal(raw) if raw else None
+    except Exception:
+        return None
+    return v.quantize(Decimal("0.001")) if v is not None and v > 0 else None
+
+
 def _fill(e):
     e.spent_on = f_date("spent_on", default=today())
     cat = request.form.get("category")
     allowed = dict(_categories())
     e.category = cat if cat in allowed else "other"
-    e.amount = f_money("amount") or Decimal(0)
+    e.amount = f_money("amount")
     e.vendor = f_str("vendor", 120)
-    e.gallons = f_money("gallons") if e.category == "fuel" else None
+    e.gallons = f_gallons("gallons") if e.category == "fuel" else None
+    ppg = f_gallons("price_per_gallon")
+    if e.category == "fuel" and e.gallons and ppg and not e.amount:
+        e.amount = (e.gallons * ppg).quantize(Decimal("0.01"))
     e.odometer = f_int("odometer")
     e.notes = f_str("notes", 255)
     trk = f_int("truck_id")
@@ -81,6 +93,7 @@ def _fill(e):
     if current_user.is_staff:
         uid = f_int("user_id")
         e.user_id = get_or_404_scoped(User, uid).id if uid else current_user.id
+    e.amount = e.amount or Decimal(0)
     photo = request.files.get("receipt")
     if photo and photo.filename:
         name = save_image(photo, "receipt", load_id=e.load_id)
@@ -91,8 +104,8 @@ def _fill(e):
 
 
 def _form_ctx(e):
-    loads = (visible_loads().filter(Load.status.in_(("assigned", "picked_up", "delivered")))
-             .order_by(Load.number.desc()).limit(40).all())
+    loads = (visible_loads().filter(Load.status.in_(("assigned", "picked_up", "delivered", "paid")))
+             .order_by(Load.number.desc()).limit(60).all())
     trucks = scoped(Truck).filter_by(is_active=True).order_by(Truck.unit).all()
     people = scoped(User).order_by(User.name).all() if current_user.is_staff else []
     return dict(e=e, categories=_categories(), loads=loads, trucks=trucks, people=people)
@@ -113,7 +126,9 @@ def new():
         db.session.commit()
         flash(f"Expense saved: ${e.amount:,.2f} {e.category_label}.", "success")
         if request.form.get("another"):
-            return redirect(url_for("expenses.new", category=e.category))
+            return redirect(url_for("expenses.new", category=e.category, load=e.load_id))
+        if request.form.get("back") == "load" and e.load_id:
+            return redirect(url_for("loads.detail", load_id=e.load_id) + "#job-cost")
         return redirect(url_for("main.dashboard") if current_user.is_driver else url_for("expenses.index"))
     if current_user.is_driver and not e.truck_id:
         last = (scoped(Expense).filter(Expense.user_id == current_user.id, Expense.truck_id.isnot(None))
@@ -132,6 +147,8 @@ def edit(expense_id):
         _fill(e)
         db.session.commit()
         flash("Saved.", "success")
+        if request.form.get("back") == "load" and e.load_id:
+            return redirect(url_for("loads.detail", load_id=e.load_id) + "#job-cost")
         return redirect(url_for("expenses.index"))
     return render_template("expenses/form.html", **_form_ctx(e))
 

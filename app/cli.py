@@ -101,6 +101,7 @@ def seed(password="demo1234", n_loads=40):
             ("2018", "Chevrolet", "Silverado"), ("2020", "Tesla", "Model 3"), ("2017", "Jeep", "Wrangler"),
             ("2023", "Kia", "Telluride"), ("2016", "BMW", "X5")]
     today = date.today()
+    made = []
     for i in range(n_loads):
         pu = rnd.choice(cities)
         de = rnd.choice([c for c in cities if c != pu])
@@ -143,6 +144,19 @@ def seed(password="demo1234", n_loads=40):
                                          method=rnd.choice(["check", "ach", "zelle"]), recorded_by_id=owner.id))
         load.events.append(LoadEvent(user_id=owner.id, kind="status", message=f"Load created ({status})"))
         db.session.add(load)
+        made.append(load)
+
+    # 1-3 fuel stops on each delivered/paid load, so job cost per mile has data
+    db.session.flush()
+    for load in made:
+        if load.status in ("picked_up", "delivered", "paid") and load.driver_id:
+            for _ in range(rnd.choice([1, 2, 2, 3])):
+                gal = Decimal(str(round(rnd.uniform(40, 110), 1)))
+                ppg = Decimal(str(round(rnd.uniform(3.55, 4.15), 3)))
+                db.session.add(Expense(company_id=co.id, spent_on=load.pickup_date or today, category="fuel",
+                                       amount=(gal * ppg).quantize(Decimal("0.01")), gallons=gal,
+                                       vendor=rnd.choice(["Pilot", "Love's", "TA", "Wawa"]),
+                                       user_id=load.driver_id, truck_id=load.truck_id, load_id=load.id))
 
     for i in range(60):
         d = today - timedelta(days=rnd.randint(0, 85))

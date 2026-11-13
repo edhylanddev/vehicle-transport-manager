@@ -1,0 +1,91 @@
+{# Job cost: fuel stops + other expenses logged against this load, and cost per mile. #}
+{% set jc = load.job_costs() %}
+{% set can_log = current_user.is_staff or load.driver_id == current_user.id %}
+<div class="card mb-3" id="job-cost">
+  <div class="card-header d-flex align-items-center gap-2">
+    <span class="me-auto"><i class="bi bi-fuel-pump me-1"></i> {{ 'Job cost' if current_user.is_staff else 'Fuel & expenses for this load' }}</span>
+    {% if can_log %}
+    <a class="btn btn-sm btn-primary" href="{{ url_for('expenses.new', category='fuel', load=load.id, back='load') }}"><i class="bi bi-plus-lg"></i> Fuel stop</a>
+    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('expenses.new', category='tolls', load=load.id, back='load') }}" title="Tolls, repairs, other"><i class="bi bi-receipt"></i> Other</a>
+    {% endif %}
+  </div>
+
+  {# ---- the numbers ---- #}
+  <div class="card-body pb-2">
+    {% if not jc.miles %}
+      <form method="post" action="{{ url_for('loads.set_miles', load_id=load.id) }}" class="alert alert-warning d-flex flex-wrap align-items-center gap-2 py-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <span class="me-auto small"><b>Add the trip miles</b> to see cost per mile.</span>
+        <input class="form-control form-control-sm" style="max-width:7rem" name="miles" inputmode="numeric" placeholder="Miles" required>
+        <button class="btn btn-sm btn-warning">Save</button>
+      </form>
+    {% endif %}
+
+    {% if current_user.is_staff %}
+    <div class="row g-2 text-center mb-2">
+      <div class="col-4"><div class="border rounded-3 p-2 h-100"><div class="small text-muted">Cost / mile</div>
+        <div class="fs-5 fw-bold num">{{ jc.cost_per_mile|money if jc.cost_per_mile is not none else '—' }}</div></div></div>
+      <div class="col-4"><div class="border rounded-3 p-2 h-100"><div class="small text-muted">Revenue / mile</div>
+        <div class="fs-5 fw-bold num">{{ jc.revenue_per_mile|money if jc.revenue_per_mile is not none else '—' }}</div></div></div>
+      <div class="col-4"><div class="border rounded-3 p-2 h-100"><div class="small text-muted">Profit / mile</div>
+        <div class="fs-5 fw-bold num {{ 'text-danger' if jc.profit_per_mile is not none and jc.profit_per_mile < 0 }}">{{ jc.profit_per_mile|money if jc.profit_per_mile is not none else '—' }}</div></div></div>
+    </div>
+    <table class="table table-sm mb-1">
+      <tbody>
+        <tr><td>Fuel <span class="text-muted small">({{ jc.fuel_stops }} stop{{ 's' if jc.fuel_stops != 1 }}{% if jc.gallons %}, {{ jc.gallons|round(1) }} gal{% if jc.avg_price_per_gallon %} @ ${{ jc.avg_price_per_gallon }}{% endif %}{% endif %})</span></td>
+            <td class="text-end num">{{ jc.fuel_cost|money }}</td>
+            <td class="text-end num text-muted small">{{ (jc.fuel_per_mile|money ~ '/mi') if jc.fuel_per_mile is not none else '' }}</td></tr>
+        <tr><td>Tolls, repairs &amp; other</td><td class="text-end num">{{ jc.other|money }}</td><td></td></tr>
+        <tr><td>Driver pay</td><td class="text-end num">{{ jc.driver_pay|money }}</td><td></td></tr>
+        {% if jc.broker_fee %}<tr><td>Broker / dispatch fee</td><td class="text-end num">{{ jc.broker_fee|money }}</td><td></td></tr>{% endif %}
+        <tr class="fw-semibold"><td>Total cost</td><td class="text-end num">{{ jc.total|money }}</td>
+            <td class="text-end num small">{{ (jc.cost_per_mile|money ~ '/mi') if jc.cost_per_mile is not none else '' }}</td></tr>
+        <tr><td>Load price</td><td class="text-end num">{{ jc.revenue|money }}</td><td></td></tr>
+        <tr class="fw-bold {{ 'text-danger' if jc.profit < 0 else 'text-success' }}"><td>Profit</td><td class="text-end num">{{ jc.profit|money }}</td>
+            <td class="text-end num small">{{ (jc.profit_per_mile|money ~ '/mi') if jc.profit_per_mile is not none else '' }}</td></tr>
+      </tbody>
+    </table>
+    <div class="small text-muted">{% if jc.miles %}{{ '{:,}'.format(jc.miles) }} miles{% endif %}{% if jc.mpg %} · {{ jc.mpg }} mpg{% endif %}
+      {% if jc.miles %} · <a href="#" data-bs-toggle="collapse" data-bs-target="#edit-miles">change miles</a>{% endif %}</div>
+    {% else %}
+    <div class="d-flex flex-wrap gap-3 small mb-1">
+      <span><b>{{ jc.fuel_stops }}</b> fuel stop{{ 's' if jc.fuel_stops != 1 }}</span>
+      <span><b>{{ jc.gallons|round(1) }}</b> gal</span>
+      <span>Fuel <b class="num">{{ jc.fuel_cost|money }}</b></span>
+      {% if jc.fuel_per_mile is not none %}<span><b class="num">{{ jc.fuel_per_mile|money }}</b>/mi</span>{% endif %}
+      {% if jc.mpg %}<span><b>{{ jc.mpg }}</b> mpg</span>{% endif %}
+      {% if jc.miles %}<span>{{ '{:,}'.format(jc.miles) }} mi · <a href="#" data-bs-toggle="collapse" data-bs-target="#edit-miles">change</a></span>{% endif %}
+    </div>
+    {% endif %}
+
+    {% if jc.miles and can_log %}
+    <form method="post" action="{{ url_for('loads.set_miles', load_id=load.id) }}" id="edit-miles" class="collapse mt-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="input-group input-group-sm" style="max-width:16rem">
+        <input class="form-control" name="miles" inputmode="numeric" value="{{ jc.miles }}" aria-label="Trip miles">
+        <span class="input-group-text">mi</span><button class="btn btn-outline-primary">Save</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+
+  {# ---- each stop ---- #}
+  <ul class="list-group list-group-flush">
+    {% for e in jc.expenses if current_user.is_staff or e.user_id == current_user.id %}
+    <li class="list-group-item d-flex align-items-center gap-2 small">
+      <i class="bi {{ 'bi-fuel-pump' if e.category == 'fuel' else 'bi-receipt' }} text-muted"></i>
+      <div class="me-auto min-w-0">
+        <div class="text-truncate"><b>{{ e.category_label }}</b>{% if e.vendor %} · {{ e.vendor }}{% endif %}</div>
+        <div class="text-muted">{{ e.spent_on|short_date }}{% if e.gallons %} · {{ e.gallons|round(1) }} gal @ ${{ e.price_per_gallon }}{% endif %}{% if e.odometer %} · odo {{ '{:,}'.format(e.odometer) }}{% endif %}{% if current_user.is_staff and e.user %} · {{ e.user.name.split(' ')[0] }}{% endif %}
+          {% if e.receipt_file %} · <a href="{{ url_for('main.uploaded_file', name=e.receipt_file) }}" target="_blank">receipt</a>{% endif %}</div>
+      </div>
+      <span class="num fw-semibold">{{ e.amount|money }}</span>
+      {% if current_user.is_staff or (e.user_id == current_user.id and not e.approved) %}
+      <a class="btn btn-sm btn-link p-0" href="{{ url_for('expenses.edit', expense_id=e.id, back='load') }}" aria-label="Edit expense"><i class="bi bi-pencil"></i></a>
+      {% endif %}
+    </li>
+    {% else %}
+    <li class="list-group-item small text-muted">No fuel stops or expenses logged for this load yet.</li>
+    {% endfor %}
+  </ul>
+</div>

@@ -211,3 +211,81 @@ def test_load_number_setting(app, client):
     assert Company.query.first().next_load_number > 5
     client.post("/settings/", data={"name": "X", "next_load_number": "50000"})
     assert Company.query.first().next_load_number == 50000
+
+
+def test_job_cost_per_mile(app, client):
+    from decimal import Decimal
+    driver_id = uid("driver@demo.test")
+    load = Load.query.filter_by(driver_id=driver_id, status="picked_up").first() or \
+        Load.query.filter_by(driver_id=driver_id).first()
+    load.miles = None
+    load.price = Decimal("1500")
+    load.driver_pay = Decimal("450")
+    load.broker_fee = None
+    Expense.query.filter_by(load_id=load.id).delete()   # start from a clean slate (demo data has stops)
+    db.session.commit()
+
+    login(client, "driver@demo.test")
+    # page asks for miles first
+    assert "Add the trip miles" in client.get(f"/loads/{load.id}").get_data(as_text=True)
+    client.post(f"/loads/{load.id}/miles", data={"miles": "500"})
+    # two fuel stops: gallons x price/gal fills in the amount
+    for gal, ppg in (("100", "4.00"), ("50", "3.80")):
+        r = client.post("/expenses/new", data={"category": "fuel", "gallons": gal, "price_per_gallon": ppg,
+                                               "load_id": load.id, "back": "load", "vendor": "Pilot"})
+        assert r.status_code == 302 and r.headers["Location"].endswith(f"/loads/{load.id}#job-cost")
+    client.post("/expenses/new", data={"category": "tolls", "amount": "60", "load_id": load.id})
+    db.session.refresh(load)
+
+    jc = load.job_costs()
+    assert jc["miles"] == 500 and jc["fuel_stops"] == 2
+    assert jc["fuel_cost"] == Decimal("590.00")          # 400 + 190
+    assert jc["gallons"] == Decimal("150")
+    assert jc["mpg"] == Decimal("3.3")
+    assert jc["other"] == Decimal("60")
+    assert jc["total"] == Decimal("1100.00")             # 590 + 60 + 450 driver pay
+    assert jc["cost_per_mile"] == Decimal("2.20")
+    assert jc["profit_per_mile"] == Decimal("0.80")      # (1500 - 1100) / 500
+
+    # driver sees their fuel, not the money
+    page = client.get(f"/loads/{load.id}").get_data(as_text=True)
+    assert "2</b> fuel stops" in page and "Profit / mile" not in page
+
+    # owner sees cost per mile on the load and in reports
+    login(client, "owner@demo.test")
+    page = client.get(f"/loads/{load.id}").get_data(as_text=True)
+    assert "Cost / mile" in page and "$2.20" in page and "$0.80" in page
+    load.status = "delivered"
+    db.session.commit()
+    rep = client.get("/reports/?start=2000-01-01&end=2100-01-01").get_data(as_text=True)
+    assert "Cost per mile by job" in rep and "$2.20" in rep
+    csv = client.get("/reports/loads.csv?start=2000-01-01&end=2100-01-01").get_data(as_text=True)
+    assert "Cost per mile" in csv.splitlines()[0]
+
+
+def test_logged_driver_pay_not_double_counted(app, client):
+    from decimal import Decimal
+    load = Load.query.first()
+    load.miles, load.price, load.driver_pay, load.broker_fee = 100, Decimal("500"), Decimal("150"), None
+    db.session.add(Expense(company_id=load.company_id, category="driver_pay", amount=Decimal("160"),
+                           load_id=load.id))
+    db.session.commit()
+    assert load.job_costs()["driver_pay"] == Decimal("160")
+
+
+def test_delete_load_keeps_its_expenses(app, client):
+    from decimal import Decimal
+    load = Load.query.first()
+    e = Expense(company_id=load.company_id, category="fuel", amount=Decimal("99"), load_id=load.id)
+    db.session.add(e)
+    db.session.commit()
+    login(client, "owner@demo.test")
+    assert client.post(f"/loads/{load.id}/delete").status_code == 302
+    db.session.refresh(e)
+    assert e.load_id is None and e.amount == Decimal("99")
+
+
+def test_other_driver_cannot_set_miles(app, client):
+    other = Load.query.filter_by(driver_id=uid("driver2@demo.test")).first()
+    login(client, "driver@demo.test")
+    assert client.post(f"/loads/{other.id}/miles", data={"miles": "5"}).status_code == 404

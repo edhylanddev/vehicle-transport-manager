@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from flask import Blueprint, Response, render_template, request
 from flask_login import current_user
+from sqlalchemy.orm import selectinload
 
 from ..helpers import today, arg_date, scoped, staff_required
 from ..models import Expense, Load, Truck, User
@@ -39,7 +40,8 @@ def _range():
 
 
 def revenue_loads(start, end):
-    loads = scoped(Load).filter(Load.status.in_(("delivered", "paid"))).all()
+    loads = (scoped(Load).filter(Load.status.in_(("delivered", "paid")))
+             .options(selectinload(Load.expenses), selectinload(Load.vehicles)).all())
     return [l for l in loads if start <= l.revenue_date <= end]
 
 
@@ -137,6 +139,13 @@ def index():
         })
     trend_max = max([max(t["revenue"], t["expenses"]) for t in trend] + [D0]) or Decimal(1)
 
+    jobs = sorted(((l, l.job_costs()) for l in loads), key=lambda lj: (lj[0].revenue_date, lj[0].number),
+                  reverse=True)
+    job_miles = sum(jc["miles"] for _, jc in jobs if jc["miles"])
+    job_cost_total = sum((jc["total"] for _, jc in jobs if jc["miles"]), D0)
+    jobs_summary = {"with_miles": sum(1 for _, jc in jobs if jc["miles"]), "count": len(jobs),
+                    "avg_cost_per_mile": ratio(job_cost_total, job_miles)}
+
     summary = {
         "revenue": revenue, "loads": len(loads), "cars": cars, "miles": miles,
         "expenses": total_cost, "profit": revenue - total_cost,
@@ -149,7 +158,7 @@ def index():
                            by_driver=sorted(by_driver.values(), key=lambda r: -r["revenue"]),
                            by_truck=sorted(by_truck.values(), key=lambda r: -r["revenue"]),
                            by_customer=sorted(by_customer.items(), key=lambda kv: -kv[1]["revenue"]),
-                           trend=trend, trend_max=trend_max)
+                           trend=trend, trend_max=trend_max, jobs=jobs, jobs_summary=jobs_summary)
 
 
 def _csv(filename, header, rows):
@@ -167,17 +176,21 @@ def _csv(filename, header, rows):
 def loads_csv():
     start, end = _range()
     q = (scoped(Load).filter(Load.pickup_date >= start, Load.pickup_date <= end)
-         .order_by(Load.number).all())
+         .options(selectinload(Load.expenses)).order_by(Load.number).all())
     rows = [(l.number, l.status_label, l.reference, l.customer.name if l.customer else "",
              l.pickup_date, l.pickup_city, l.pickup_state, l.delivery_date, l.delivery_city, l.delivery_state,
              len(l.vehicles), "; ".join(v.title + (f" {v.vin}" if v.vin else "") for v in l.vehicles),
              l.miles, l.price, l.driver_pay, l.broker_fee, l.terms_label, l.amount_paid, l.balance_due,
-             l.driver.name if l.driver else "", l.truck.unit if l.truck else "")
+             l.driver.name if l.driver else "", l.truck.unit if l.truck else "",
+             *(lambda jc: (jc["fuel_cost"], jc["gallons"], jc["other"], jc["total"], jc["profit"],
+                           jc["cost_per_mile"], jc["profit_per_mile"]))(l.job_costs()))
             for l in q]
     return _csv(f"loads_{start}_{end}.csv",
                 ["Load #", "Status", "Reference", "Customer", "Pickup date", "Pickup city", "Pickup state",
                  "Delivery date", "Delivery city", "Delivery state", "Cars", "Vehicles", "Miles", "Price",
-                 "Driver pay", "Broker fee", "Terms", "Paid", "Balance", "Driver", "Truck"], rows)
+                 "Driver pay", "Broker fee", "Terms", "Paid", "Balance", "Driver", "Truck",
+                 "Fuel cost", "Fuel gallons", "Other expenses", "Total job cost", "Profit",
+                 "Cost per mile", "Profit per mile"], rows)
 
 
 @bp.route("/expenses.csv")

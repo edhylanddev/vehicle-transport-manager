@@ -76,6 +76,8 @@
       </ul>
     </div>
 
+    {% include "loads/_job_cost.html" %}
+
     {% if load.dispatch_notes %}
     <div class="card mb-3"><div class="card-header"><i class="bi bi-chat-left-text me-1"></i> Notes for driver</div>
       <div class="card-body" style="white-space:pre-wrap">{{ load.dispatch_notes }}</div></div>
@@ -178,7 +180,6 @@
         <dt>Payment</dt><dd>{{ load.terms_label }}</dd>
         {% if load.truck %}<dt>Truck</dt><dd>{{ load.truck.unit }}</dd>{% endif %}
       </dl>
-      <a class="btn btn-outline-primary w-100 mt-3" href="{{ url_for('expenses.new', load=load.id) }}"><i class="bi bi-receipt"></i> Log an expense for this load</a>
     </div></div>
     {% endif %}
 

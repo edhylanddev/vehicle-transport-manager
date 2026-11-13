@@ -52,6 +52,34 @@
   </div>
 </div>
 
+
+<div class="card mb-3" id="jobs">
+  <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+    <span class="me-auto">Cost per mile by job</span>
+    <span class="small fw-normal text-muted">{% if jobs_summary.avg_cost_per_mile is not none %}Average {{ jobs_summary.avg_cost_per_mile|money }}/mi across {{ jobs_summary.with_miles }} job{{ 's' if jobs_summary.with_miles != 1 }} with miles{% endif %}</span>
+  </div>
+  <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+    <thead><tr><th>Load</th><th>Route</th><th class="text-end">Miles</th><th class="text-end">Revenue</th><th class="text-end">Fuel</th><th class="text-end">Other</th><th class="text-end">Driver pay</th><th class="text-end">Total cost</th><th class="text-end">Cost/mi</th><th class="text-end">Profit/mi</th></tr></thead>
+    <tbody>
+    {% for l, jc in jobs %}
+      <tr>
+        <td><a href="{{ url_for('loads.detail', load_id=l.id) }}#job-cost">#{{ l.number }}</a><div class="small text-muted">{{ l.revenue_date|short_date }}</div></td>
+        <td class="small">{{ l.route_short }}</td>
+        <td class="text-end num">{{ '{:,}'.format(jc.miles) if jc.miles else '—' }}</td>
+        <td class="text-end num">{{ jc.revenue|money }}</td>
+        <td class="text-end num">{{ jc.fuel_cost|money }}{% if jc.fuel_stops %}<div class="small text-muted">{{ jc.fuel_stops }} stop{{ 's' if jc.fuel_stops != 1 }}</div>{% endif %}</td>
+        <td class="text-end num">{{ jc.other|money }}</td>
+        <td class="text-end num">{{ jc.driver_pay|money }}</td>
+        <td class="text-end num fw-semibold">{{ jc.total|money }}</td>
+        <td class="text-end num fw-semibold">{{ jc.cost_per_mile|money if jc.cost_per_mile is not none else '—' }}</td>
+        <td class="text-end num {{ 'text-danger' if jc.profit_per_mile is not none and jc.profit_per_mile < 0 }}">{{ jc.profit_per_mile|money if jc.profit_per_mile is not none else '—' }}</td>
+      </tr>
+    {% else %}<tr><td colspan="10" class="text-muted">No delivered loads in this period.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  <div class="card-footer small text-muted bg-white">Each job's cost = fuel stops and other expenses logged against that load + driver pay + broker fee. "—" means the load has no miles yet; open it to add them.</div>
+</div>
+
 <div class="row g-3">
   <div class="col-lg-5">
     <div class="card mb-3"><div class="card-header">Costs by category</div>
