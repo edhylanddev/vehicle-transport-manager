@@ -28,8 +28,10 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # GitHub's Ubuntu runners already include the Android SDK (ANDROID_HOME is set);
+      # Gradle downloads any missing platform/build-tools itself.
       - name: Accept Android SDK licenses
-      run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - uses: gradle/actions/setup-gradle@v4
 
