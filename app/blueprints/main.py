@@ -130,3 +130,23 @@ def dashboard():
                            month_exp=month_exp, month_profit=month_rev - month_exp,
                            receivable=receivable, unpaid=unpaid[:10], unpaid_count=len(unpaid),
                            needs_driver=needs_driver, on_road=on_road, month_name=start.strftime("%B"))
+
+
+# --- SEO: sitemap.xml and robots.txt (public pages only; everything else needs a login) ---
+from flask import Response as _SeoResponse
+
+PUBLIC_PAGES = ["/", "/signup"]
+SITE = "https://vehicletransport.autos"
+
+
+@bp.route("/sitemap.xml")
+def sitemap_xml():
+    urls = "".join(f"  <url><loc>{SITE}{p}</loc></url>\n" for p in PUBLIC_PAGES)
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls + "</urlset>\n")
+    return _SeoResponse(xml, mimetype="application/xml")
+
+
+@bp.route("/robots.txt")
+def robots_txt():
+    return _SeoResponse(f"User-agent: *\nAllow: /\n\nSitemap: {SITE}/sitemap.xml\n", mimetype="text/plain")
