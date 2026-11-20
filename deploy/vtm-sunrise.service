@@ -1,0 +1,14 @@
+# /etc/systemd/system/vtm-sunrise.service
+# Sends the 6 AM Sunrise notification to iPhones and browsers. (The Android app schedules its own.)
+[Unit]
+Description=Vehicle Transport Manager - Sunrise notifications
+After=network-online.target mysql.service vtm.service
+
+[Service]
+Type=oneshot
+User=vtm
+Group=vtm
+WorkingDirectory=/opt/vtm
+EnvironmentFile=/opt/vtm/.env
+Environment=TZ=America/New_York
+ExecStart=/opt/vtm/.venv/bin/flask --app wsgi send-sunrise

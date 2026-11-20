@@ -21,6 +21,8 @@
   {% else %}
     <div class="alert alert-info mb-0">The Android app is being prepared. In the meantime, the website works on your phone: open <b>{{ config.APP_URL }}</b> in Chrome and choose <b>⋮ → Add to Home screen</b>.</div>
   {% endif %}
+  <p class="small mt-3 mb-1"><i class="bi bi-play-btn"></i> <a href="{{ url_for('main.videos', slug='install-android-app') }}">Watch the 1-minute install video</a></p>
+  <p class="small text-muted mb-0"><i class="bi bi-apple"></i> Have an iPhone? <a href="{{ url_for('main.iphone') }}">Put the app on your iPhone</a>.</p>
 </div></div>
 {% endmacro %}
 {% block content %}{{ body() }}{% endblock %}

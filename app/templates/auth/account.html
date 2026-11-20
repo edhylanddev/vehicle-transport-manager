@@ -12,6 +12,9 @@
     box.hidden = false;
   })();
 </script>
+{% if current_user.is_staff and not IN_ANDROID_APP %}
+<script src="{{ url_for('static', filename='js/push.js') }}?v=1"></script>
+{% endif %}
 {% endblock %}
 {% block content %}
 <h1 class="page-title mb-3">My account</h1>
@@ -23,6 +26,23 @@
       <div class="me-auto"><div class="fw-semibold">Sunrise report notification</div>
         <div class="small text-muted">Every morning at 6:00, a summary of yesterday's business. <a href="{{ url_for('reports.sunrise') }}">Open today's</a></div></div>
       <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="sunrise-toggle" style="width:3em;height:1.5em" aria-label="Sunrise report notification"></div>
+    </div></div>
+  </div>
+  {% endif %}
+  {% if current_user.is_staff and not IN_ANDROID_APP %}
+  <div class="col-12" id="push-pref" data-key="{{ config.VAPID_PUBLIC_KEY }}" hidden>
+    <div class="card"><div class="card-body">
+      <div class="d-flex align-items-center gap-3">
+        <i class="bi bi-sunrise fs-3 text-warning"></i>
+        <div class="me-auto"><div class="fw-semibold">Sunrise report notification</div>
+          <div class="small text-muted">Every morning at 6:00, a summary of yesterday's business on this device. <a href="{{ url_for('reports.sunrise') }}">Open today's</a></div></div>
+        <div id="push-ready" hidden class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="push-toggle" style="width:3em;height:1.5em" aria-label="Sunrise report notification"></div>
+      </div>
+      <div id="push-install" hidden class="small mt-2">On iPhone, notifications only work in the home-screen app. <a href="{{ url_for('main.iphone') }}" class="fw-semibold">Add it to your home screen</a>, open it from there, sign in, and come back to this page.</div>
+      <div id="push-unsupported" hidden class="small text-muted mt-2">This browser can't receive notifications{% if not config.VAPID_PUBLIC_KEY %} yet (they aren't set up on the server){% endif %}.</div>
+      <div id="push-blocked" hidden class="small mt-2">Notifications are blocked for this site. On iPhone: <b>Settings → Notifications → VTM</b> → turn on <b>Allow Notifications</b>. In a browser: click the lock icon by the address and allow notifications. Then reload this page.</div>
+      <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="push-test" hidden><i class="bi bi-send"></i> Send a test</button>
+      <div id="push-msg" class="small mt-2"></div>
     </div></div>
   </div>
   {% endif %}

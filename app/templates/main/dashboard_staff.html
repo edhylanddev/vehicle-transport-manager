@@ -17,7 +17,8 @@
       <span class="me-auto {{ 'text-decoration-line-through' if done }}">{{ label }}</span><i class="bi bi-chevron-right small"></i></a>
     {% endfor %}
   </div>
-  <div class="card-footer small text-muted bg-white">Drivers sign in with the login you create for them under <b>Team</b>, on the website or the Android app at <b>{{ config.APP_URL }}/app</b>.</div>
+  <div class="card-footer small text-muted bg-white">Drivers sign in with the login you create for them under <b>Team</b>, on the website, the Android app (<b>{{ config.APP_URL }}/app</b>) or the iPhone app (<b>{{ config.APP_URL }}/iphone</b>).
+    <a href="{{ url_for('main.videos') }}" class="text-nowrap"><i class="bi bi-play-btn"></i> How-to videos</a> you can share with them.</div>
 </div>
 {% endif %}
 <a class="d-flex align-items-center gap-2 mb-3 p-2 px-3 rounded-3 text-decoration-none text-white" style="background:linear-gradient(135deg,#f2a900,#f07b2c 60%,#c94a3a)" href="{{ url_for('reports.sunrise') }}">

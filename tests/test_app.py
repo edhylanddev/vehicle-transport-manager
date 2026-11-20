@@ -492,3 +492,142 @@ def test_superadmin_page(app, client):
     page = client.get("/admin/").get_data(as_text=True)
     assert "All companies" in page and "Sunshine Auto Transport" in page
     assert "All companies (admin)" in client.get("/dashboard").get_data(as_text=True)
+
+
+# ---------------------------------------------------------------- iPhone / browser notifications
+
+SUB = {"endpoint": "https://web.push.apple.com/QAbc123", "keys": {"p256dh": "BPk" + "x" * 84, "auth": "a" * 22}}
+
+
+def push_ready(app, monkeypatch, outcome="ok"):
+    from app import push
+    app.config.update(VAPID_PUBLIC_KEY="pub", VAPID_PRIVATE_KEY="priv")
+    sent = []
+
+    def fake_send(sub, payload):
+        sent.append((sub.user.email, payload))
+        if outcome == "gone":
+            db.session.delete(sub)
+        return outcome
+    monkeypatch.setattr(push, "send", fake_send)
+    return sent
+
+
+def test_iphone_pages_and_service_worker(client):
+    r = client.get("/iphone", headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) Safari"})
+    assert r.status_code == 200 and b"Add to Home Screen" in r.data
+    r = client.get("/sw.js")
+    assert r.status_code == 200 and b"showNotification" in r.data and r.headers["Service-Worker-Allowed"] == "/"
+    assert b"iPhone app" in client.get("/", headers={"User-Agent": "iPhone"}).data
+    m = client.get("/manifest.webmanifest").get_json()
+    assert m["display"] == "standalone" and m["scope"] == "/"
+    login(client, "owner@demo.test")
+    page = client.get("/dashboard", headers={"User-Agent": "iPhone"}).data
+    assert b"apple-mobile-web-app-capable" in page and b"ios-install-tip" in page and b"/sw.js" in page
+    # the Android app keeps its own notification and doesn't get the web one
+    acct = client.get("/account", headers={"User-Agent": "VTMApp/1.1.0"}).data
+    assert b"push-pref" not in acct and b"sunrise-pref" in acct
+    assert b"push-pref" in client.get("/account").data
+
+
+def test_push_subscribe_send_and_cleanup(app, client, monkeypatch):
+    from app import push
+    from app.models import PushSubscription
+    sent = push_ready(app, monkeypatch)
+
+    login(client, "driver@demo.test")
+    assert client.post("/push/subscribe", json=SUB).status_code == 403  # drivers don't get the Sunrise report
+
+    login(client, "owner@demo.test")
+    assert client.post("/push/subscribe", json={"endpoint": "http://evil", "keys": {}}).status_code == 400
+    r = client.post("/push/subscribe", json=SUB, headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1)"})
+    assert r.get_json() == {"ok": True}
+    client.post("/push/subscribe", json=SUB)  # same device again: still one row
+    sub = PushSubscription.query.one()
+    assert sub.device in ("iPhone", "Browser") and sub.user.email == "owner@demo.test"
+
+    assert client.post("/push/test", json=SUB).get_json() == {"ok": True}
+    assert sent[-1][1]["title"].endswith("(test)") and sent[-1][1]["url"] == "/reports/sunrise"
+
+    # 6 AM run: sends once a day, only inside the morning window unless forced
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo(app.config["APP_TIMEZONE"])
+    monkeypatch.setattr(push, "local_now", lambda: datetime(2026, 11, 15, 14, 0, tzinfo=tz))
+    assert "skipped" in push.send_sunrise()
+    monkeypatch.setattr(push, "local_now", lambda: datetime(2026, 11, 15, 6, 0, 5, tzinfo=tz))
+    sent.clear()
+    assert push.send_sunrise() == {"ok": 1, "gone": 0, "error": 0}
+    assert sent[0][1]["body"].startswith(("Yesterday:", "No deliveries"))
+    assert push.send_sunrise() == {"ok": 0, "gone": 0, "error": 0}  # already sent today
+
+    # a device that removed the app is cleaned up
+    push_ready(app, monkeypatch, outcome="gone")
+    monkeypatch.setattr(push, "local_now", lambda: datetime(2026, 11, 16, 6, 0, tzinfo=tz))
+    assert push.send_sunrise()["gone"] == 1 and PushSubscription.query.count() == 0
+
+    # unsubscribe only removes your own device
+    push_ready(app, monkeypatch)
+    client.post("/push/subscribe", json=SUB)
+    login(client, "office@demo.test")
+    client.post("/push/unsubscribe", json=SUB)
+    assert PushSubscription.query.count() == 1
+    login(client, "owner@demo.test")
+    client.post("/push/unsubscribe", json=SUB)
+    assert PushSubscription.query.count() == 0
+
+
+def test_sunrise_summary_counts_yesterday(app):
+    from datetime import datetime, timezone
+    from decimal import Decimal
+    from app import push
+    from app.models import Company
+    co = Company.query.first()
+    load = Load.query.filter_by(company_id=co.id).first()
+    load.delivered_at = datetime(2026, 11, 14, 18, 0, tzinfo=timezone.utc).replace(tzinfo=None)
+    load.price = Decimal("1250")
+    db.session.commit()
+    from datetime import date
+    text = push.sunrise_summary(co.id, date(2026, 11, 14))
+    assert "delivered" in text and "$" in text
+
+
+def test_vapid_keys_work_with_pywebpush(app):
+    from py_vapid import Vapid01
+    out = app.test_cli_runner().invoke(args=["vapid-keys"]).output
+    lines = dict(l.split("=", 1) for l in out.strip().splitlines())
+    assert len(lines["VAPID_PUBLIC_KEY"]) == 87
+    Vapid01.from_string(lines["VAPID_PRIVATE_KEY"])  # the format webpush() is given
+
+
+# ---------------------------------------------------------------- how-to videos
+
+def test_videos_pages_public_shareable_and_linked(client):
+    from app.blueprints.main import VIDEOS
+    r = client.get("/videos")
+    assert r.status_code == 200
+    for v in VIDEOS:
+        assert v["slug"].encode() in r.data
+    r = client.get("/videos/central-dispatch-import")
+    page = r.data.decode()
+    assert r.status_code == 200
+    assert '<video controls playsinline' in page and "central-dispatch-import.mp4" in page
+    # link previews (texts, Facebook, WhatsApp) use absolute URLs
+    assert 'property="og:image" content="https://' in page and 'property="og:video" content="https://' in page
+    assert "https://vehicletransport.autos/videos/central-dispatch-import" in page or 'property="og:url" content="http' in page
+    assert "wa.me/?text=" in page and "facebook.com/sharer" in page and "sms:?&body=" in page
+    assert client.get("/videos/nope").status_code == 404
+    # the files exist and support range requests (iPhones need them to play video)
+    for v in VIDEOS:
+        r = client.get(f"/static/videos/{v['slug']}.mp4", headers={"Range": "bytes=0-99"})
+        assert r.status_code == 206 and len(r.data) == 100
+        r.close()
+        assert client.get(f"/static/videos/{v['slug']}.jpg").status_code == 200
+    # linked from the public pages and, once signed in, from the menu, dashboard and New load
+    assert b"/videos" in client.get("/").data
+    assert b"/videos/install-android-app" in client.get("/app").data
+    assert b"/videos/install-iphone-app" in client.get("/iphone").data
+    login(client, "owner@demo.test")
+    assert b'href="/videos"' in client.get("/dashboard").data
+    assert b"/videos/central-dispatch-import" in client.get("/loads/new").data
+    assert b"<video" in client.get("/videos/install-iphone-app").data  # also works inside the app

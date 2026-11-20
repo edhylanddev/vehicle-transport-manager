@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% set base_url = config.APP_URL.rstrip('/') %}
+{% set page_url = base_url ~ (url_for('main.videos', slug=current.slug) if current else url_for('main.videos')) %}
+{% block title %}{{ current.title if current else 'How-To Videos' }} · {{ APP_NAME }}{% endblock %}
+{% block description %}{{ current.summary if current else 'Short how-to videos for Vehicle Transport Manager: installing the app on Android and iPhone, and importing Central Dispatch loads.' }}{% endblock %}
+{% set video_details = {
+  'install-android-app': {
+    'intro': "Vehicle Transport Manager runs on the Android phones your drivers already carry. The app comes straight from this website rather than the Play Store, so Android asks once whether to allow the install. The video shows exactly which button to tap.",
+    'steps': ["Download the app from the Android app page and open the file.",
+              "Allow installs from your browser when Android asks.",
+              "Open the app and sign in with your Vehicle Transport Manager account.",
+              "Turn on the 6 AM Sunrise report for a morning summary of the previous day's loads, deliveries and payments."],
+    'outro': "Once it's installed, drivers can see their assigned loads, run pickup and delivery inspections with photos, collect customer signatures, and log fuel, tolls and repairs with receipt photos. If Android blocks the install, check that the download finished, then open the file again from the phone's Downloads folder."},
+  'install-iphone-app': {
+    'intro': "iPhones don't install apps from websites, so on an iPhone Vehicle Transport Manager works as a home-screen app. It opens full screen with its own icon, like an App Store app, and there is nothing to download or update.",
+    'steps': ["Open vehicletransport.autos in Safari.",
+              "Tap the Share button, then Add to Home Screen.",
+              "Open the new icon and sign in to your account.",
+              "Allow notifications and turn on the Sunrise report."],
+    'outro': "Drivers and office staff can then manage loads, run vehicle inspections with photos and capture customer signatures from the iPhone, the same as on Android or a computer. The home-screen app updates by itself, so everyone is always on the latest version."},
+  'central-dispatch-import': {
+    'intro': "If you take loads from Central Dispatch, you don't have to type them in again. Download the dispatch sheet PDF for the load, upload it when you create a new load, and Vehicle Transport Manager reads it for you.",
+    'steps': ["The customer the load is for.",
+              "Every vehicle on the order.",
+              "The pickup and delivery locations.",
+              "The agreed price."],
+    'outro': "Check the details, assign a driver and a truck, and the load is ready to dispatch. It saves several minutes of copying on every load and avoids typing mistakes in names and addresses. Imported loads then work like any other load: drivers see them in the app, run the pickup and delivery inspections, and the invoice is ready once the vehicles are delivered."},
+} %}
+{% block head %}
+  {% set v = current or videos[0] %}
+  <link rel="canonical" href="{{ page_url }}">
+  <meta property="og:type" content="{{ 'video.other' if current else 'website' }}">
+  <meta property="og:site_name" content="{{ APP_NAME }}">
+  <meta property="og:title" content="{{ current.title if current else 'How-to videos' }} · {{ APP_NAME }}">
+  <meta property="og:description" content="{{ current.summary if current else 'Install the app on Android or iPhone and import Central Dispatch loads, each in about a minute.' }}">
+  <meta property="og:url" content="{{ page_url }}">
+  <meta property="og:image" content="{{ base_url }}{{ url_for('static', filename='videos/' ~ v.slug ~ '.jpg') }}">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="720">
+  {% if current %}
+  <meta property="og:video" content="{{ base_url }}{{ url_for('static', filename='videos/' ~ current.slug ~ '.mp4') }}">
+  <meta property="og:video:type" content="video/mp4">
+  <meta property="og:video:width" content="1920">
+  <meta property="og:video:height" content="1080">
+  {% endif %}
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    .vid-frame { position: relative; border-radius: 14px; overflow: hidden; background: #0b2240; aspect-ratio: 16 / 9; }
+    .vid-frame video, .vid-frame img { width: 100%; height: 100%; display: block; object-fit: cover; }
+    .vid-card { text-decoration: none; color: inherit; }
+    .vid-card .play { position: absolute; left: 10px; bottom: 10px; display: flex; align-items: center; gap: 6px;
+                      background: rgba(255,255,255,.94); color: #0f3d6e; font-weight: 600; font-size: .85rem;
+                      padding: 4px 12px 4px 6px; border-radius: 999px; box-shadow: 0 4px 14px rgba(0,0,0,.25); transition: transform .15s; }
+    .vid-card:hover .play { transform: scale(1.05); }
+    .vid-card .len { position: absolute; right: 10px; bottom: 10px; background: rgba(0,0,0,.65); color: #fff; font-size: .75rem;
+                     padding: 2px 8px; border-radius: 6px; }
+    .share-row .btn { white-space: nowrap; }
+  </style>
+{% endblock %}
+
+{% macro share(v, primary=False) %}
+  {% set url = base_url ~ url_for('main.videos', slug=v.slug) %}
+  {% set text = 'How to ' ~ v.title[0]|lower ~ v.title[1:] ~ ' (Vehicle Transport Manager, ' ~ v.minutes ~ ')' %}
+  <div class="share-row d-flex flex-wrap gap-2" data-share-url="{{ url }}" data-share-title="{{ v.title }}" data-share-text="{{ text }}">
+    <button type="button" class="btn btn-sm {{ 'btn-primary' if primary else 'btn-outline-primary' }} js-share" hidden><i class="bi bi-share"></i> Share</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary js-copy"><i class="bi bi-link-45deg"></i> <span>Copy link</span></button>
+    <a class="btn btn-sm btn-outline-secondary" href="sms:?&body={{ (text ~ ': ' ~ url)|urlencode }}"><i class="bi bi-chat-dots"></i> Text</a>
+    <a class="btn btn-sm btn-outline-secondary" href="mailto:?subject={{ text|urlencode }}&body={{ ('Here’s a short video: ' ~ url)|urlencode }}"><i class="bi bi-envelope"></i> Email</a>
+    <a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="https://wa.me/?text={{ (text ~ ': ' ~ url)|urlencode }}"><i class="bi bi-whatsapp"></i> WhatsApp</a>
+    <a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u={{ url|urlencode }}"><i class="bi bi-facebook"></i> Facebook</a>
+  </div>
+{% endmacro %}
+
+{% macro card(v) %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card h-100">
+      <a class="vid-card" href="{{ url_for('main.videos', slug=v.slug) }}">
+        <div class="vid-frame rounded-bottom-0">
+          <img src="{{ url_for('static', filename='videos/' ~ v.slug ~ '.jpg') }}" alt="" loading="lazy">
+          <div class="play"><i class="bi bi-play-circle-fill fs-5"></i> Watch</div>
+          <span class="len">{{ v.minutes }}</span>
+        </div>
+      </a>
+      <div class="card-body d-flex flex-column">
+        <h2 class="h6 fw-bold mb-1"><i class="bi {{ v.icon }} text-muted"></i> <a class="text-reset text-decoration-none" href="{{ url_for('main.videos', slug=v.slug) }}">{{ v.title }}</a></h2>
+        <p class="small text-muted mb-3">{{ v.summary }}</p>
+        <div class="mt-auto">{{ share(v) }}</div>
+      </div>
+    </div>
+  </div>
+{% endmacro %}
+
+{% macro body() %}
+<div class="py-3 py-md-4">
+  {% if current %}
+  <a class="small text-decoration-none" href="{{ url_for('main.videos') }}"><i class="bi bi-chevron-left"></i> All videos</a>
+  <div class="row g-4 mt-1">
+    <div class="col-lg-8">
+      <div class="vid-frame shadow-sm">
+        <video controls playsinline preload="metadata" poster="{{ url_for('static', filename='videos/' ~ current.slug ~ '.jpg') }}">
+          <source src="{{ url_for('static', filename='videos/' ~ current.slug ~ '.mp4') }}" type="video/mp4">
+          Your browser can't play this video. <a href="{{ url_for('static', filename='videos/' ~ current.slug ~ '.mp4') }}">Download it</a> instead.
+        </video>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <h1 class="h4 fw-bold"><i class="bi {{ current.icon }} text-muted"></i> {{ current.title }}</h1>
+      <p class="text-muted small mb-2">{{ current.minutes }} · {{ current.for_who }}</p>
+      <p>{{ current.summary }}</p>
+      <div class="fw-semibold small mb-2">Share this video</div>
+      {{ share(current, primary=True) }}
+      {% if current.slug == 'install-android-app' %}
+        <a class="btn btn-warning fw-semibold mt-3" href="{{ url_for('main.app_download') }}"><i class="bi bi-download"></i> Get the Android app</a>
+      {% elif current.slug == 'install-iphone-app' %}
+        <a class="btn btn-warning fw-semibold mt-3" href="{{ url_for('main.iphone') }}"><i class="bi bi-apple"></i> iPhone setup steps</a>
+      {% elif current_user.is_authenticated and current_user.is_staff %}
+        <a class="btn btn-warning fw-semibold mt-3" href="{{ url_for('loads.new') }}"><i class="bi bi-file-earmark-arrow-up"></i> Import a load now</a>
+      {% endif %}
+      {% set d = video_details.get(current.slug) %}
+      {% if d %}
+      <h2 class="h6 fw-bold mt-4">What the video covers</h2>
+      <p class="small">{{ d.intro }}</p>
+      <ul class="small ps-3">{% for s in d.steps %}<li>{{ s }}</li>{% endfor %}</ul>
+      <p class="small text-muted">{{ d.outro }}</p>
+      {% endif %}
+    </div>
+  </div>
+  <h2 class="h6 fw-bold mt-5 mb-3">More videos</h2>
+  <div class="row g-3">
+    {% for v in videos if v.slug != current.slug %}{{ card(v) }}{% endfor %}
+  </div>
+  {% else %}
+  <h1 class="h3 fw-bold mb-1">How-to videos</h1>
+  <p class="text-muted mb-2">Each one takes about a minute. Tap a video to watch it, or share it with your drivers and office staff.</p>
+  <p class="small mb-4">Vehicle Transport Manager is a dispatch and management app for car haulers and auto transport companies. These short videos cover putting the app on your drivers' Android phones and iPhones, and turning a Central Dispatch dispatch sheet into a new load in a few seconds. Share them with new drivers on their first day so they can install the app and sign in without a walkthrough. Each video has its own page with the steps written out, so drivers can follow along even where they can't play sound.</p>
+  <div class="row g-3">
+    {% for v in videos %}{{ card(v) }}{% endfor %}
+  </div>
+  <div class="card mt-4"><div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <div class="me-auto"><div class="fw-semibold">Share all the videos</div><div class="small text-muted">Send one link with all three, for example to a new driver.</div></div>
+    <div class="share-row d-flex flex-wrap gap-2" data-share-url="{{ page_url }}" data-share-title="How-to videos" data-share-text="Vehicle Transport Manager how-to videos">
+      <button type="button" class="btn btn-sm btn-primary js-share" hidden><i class="bi bi-share"></i> Share</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary js-copy"><i class="bi bi-link-45deg"></i> <span>Copy link</span></button>
+      <a class="btn btn-sm btn-outline-secondary" href="sms:?&body={{ ('Vehicle Transport Manager how-to videos: ' ~ page_url)|urlencode }}"><i class="bi bi-chat-dots"></i> Text</a>
+      <a class="btn btn-sm btn-outline-secondary" href="mailto:?subject={{ 'Vehicle Transport Manager how-to videos'|urlencode }}&body={{ ('Short videos on setting up the app: ' ~ page_url)|urlencode }}"><i class="bi bi-envelope"></i> Email</a>
+    </div>
+  </div></div>
+  {% endif %}
+</div>
+<script>
+  (function () {
+    var canShare = !!navigator.share;
+    document.querySelectorAll(".share-row").forEach(function (row) {
+      var url = row.dataset.shareUrl, title = row.dataset.shareTitle, text = row.dataset.shareText;
+      var share = row.querySelector(".js-share"), copy = row.querySelector(".js-copy");
+      if (canShare && share) {
+        share.hidden = false;
+        share.addEventListener("click", function () {
+          navigator.share({ title: title, text: text, url: url }).catch(function () {});
+        });
+      }
+      if (copy) copy.addEventListener("click", function () {
+        var label = copy.querySelector("span");
+        function done() { label.textContent = "Copied"; setTimeout(function () { label.textContent = "Copy link"; }, 2000); }
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(url).then(done, function () { window.prompt("Copy this link:", url); });
+        } else {
+          window.prompt("Copy this link:", url);
+        }
+      });
+    });
+  })();
+</script>
+{% endmacro %}
+
+{% block content %}<div class="container-fluid px-0">{{ body() }}</div>{% endblock %}
+{% block public %}
+<nav class="navbar bg-white border-bottom"><div class="container">
+  <a class="navbar-brand fw-bold text-brand" href="/"><i class="bi bi-truck-front-fill text-warning"></i> {{ APP_NAME }}</a>
+  <a class="btn btn-primary btn-sm" href="{{ url_for('auth.login') }}">Sign in</a></div></nav>
+<div class="container">{{ body() }}</div>
+{% endblock %}

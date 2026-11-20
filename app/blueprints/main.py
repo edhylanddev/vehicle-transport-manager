@@ -38,11 +38,52 @@ def app_version():
                    url=url_for("static", filename="downloads/" + cfg["ANDROID_APK_FILE"], _external=True))
 
 
+# How-to videos (files in static/videos/<slug>.mp4 with a <slug>.jpg preview picture)
+VIDEOS = [
+    {"slug": "install-android-app", "title": "Install the Android app", "minutes": "1 minute",
+     "summary": "Download the app from the website, allow the install, sign in and turn on the 6 AM Sunrise report.",
+     "icon": "bi-android2", "for_who": "Owners, office staff and drivers with an Android phone"},
+    {"slug": "install-iphone-app", "title": "Put the app on your iPhone", "minutes": "1 minute",
+     "summary": "Add the app to your iPhone's home screen from Safari, sign in and turn on the Sunrise notification.",
+     "icon": "bi-apple", "for_who": "Owners, office staff and drivers with an iPhone"},
+    {"slug": "central-dispatch-import", "title": "Import a Central Dispatch load", "minutes": "1 minute",
+     "summary": "Upload a Central Dispatch dispatch sheet PDF and the new load fills itself in: customer, vehicles, "
+                "pickup, delivery and price.", "icon": "bi-file-earmark-arrow-up", "for_who": "Owners and office staff"},
+]
+
+
+@bp.route("/videos")
+@bp.route("/videos/<slug>")
+def videos(slug=None):
+    """How-to videos. Each one has its own page so a shared link opens (and previews) that video."""
+    current = next((v for v in VIDEOS if v["slug"] == slug), None)
+    if slug and not current:
+        abort(404)
+    return render_template("main/videos.html", videos=VIDEOS, current=current)
+
+
+@bp.route("/iphone")
+def iphone():
+    """How to put the app on an iPhone's home screen (iPhones don't install apps from websites)."""
+    return render_template("main/iphone.html")
+
+
+@bp.route("/sw.js")
+def service_worker():
+    """Served from the site root so it covers every page (needed for home-screen install and notifications)."""
+    resp = send_from_directory(os.path.join(current_app.static_folder, "pwa"), "sw.js", max_age=0)
+    resp.headers["Cache-Control"] = "no-cache"
+    resp.headers["Service-Worker-Allowed"] = "/"
+    return resp
+
+
 @bp.route("/manifest.webmanifest")
 def manifest():
     resp = jsonify({
+        "id": "/dashboard",
         "name": current_app.config["APP_NAME"],
         "short_name": "VTM",
+        "scope": "/",
         "start_url": "/dashboard",
         "display": "standalone",
         "background_color": "#ffffff",
@@ -50,6 +91,7 @@ def manifest():
         "icons": [
             {"src": url_for("static", filename="img/icon-192.png"), "sizes": "192x192", "type": "image/png"},
             {"src": url_for("static", filename="img/icon-512.png"), "sizes": "512x512", "type": "image/png"},
+            {"src": url_for("static", filename="img/apple-touch-icon.png"), "sizes": "180x180", "type": "image/png"},
         ],
     })
     resp.mimetype = "application/manifest+json"
@@ -171,18 +213,6 @@ SEO_PAGES = {
     "/iphone": ("iPhone App for Car Haulers · Vehicle Transport Manager",
                 "Add Vehicle Transport Manager to your iPhone home screen and run inspections, capture signatures and "
                 "manage loads from Safari. No App Store needed."),
-    "/videos": ("How-To Videos · Vehicle Transport Manager",
-                "Short how-to videos for Vehicle Transport Manager: installing the Android and iPhone apps and importing "
-                "loads from Central Dispatch."),
-    "/videos/install-android-app": ("How to Install the Android App · Vehicle Transport Manager",
-                                    "Step-by-step video: download and install the Vehicle Transport Manager Android "
-                                    "app, then sign in and get your drivers set up."),
-    "/videos/install-iphone-app": ("How to Install the iPhone App · Vehicle Transport Manager",
-                                   "Step-by-step video: add Vehicle Transport Manager to your iPhone home screen from "
-                                   "Safari and sign in. No App Store download needed."),
-    "/videos/central-dispatch-import": ("Import Central Dispatch Loads · Vehicle Transport Manager",
-                                        "Watch how to import a Central Dispatch load order into Vehicle Transport "
-                                        "Manager so the new load fills in automatically."),
 }
 SEO_NOINDEX = {"/login"}
 

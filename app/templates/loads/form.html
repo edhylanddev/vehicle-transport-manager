@@ -54,7 +54,7 @@
       {{ csrf() }}
       <div class="me-auto">
         <div class="fw-semibold"><i class="bi bi-file-earmark-arrow-up text-primary"></i> Import from Central Dispatch</div>
-        <div class="small text-muted">Upload the dispatch sheet PDF and the form below fills itself in. You review it before saving.</div>
+        <div class="small text-muted">Upload the dispatch sheet PDF and the form below fills itself in. You review it before saving. <a href="{{ url_for('main.videos', slug='central-dispatch-import') }}" class="text-nowrap"><i class="bi bi-play-btn"></i> Watch how</a></div>
       </div>
       <input class="form-control form-control-sm" style="max-width:18rem" type="file" name="sheet" accept="application/pdf,.pdf" required>
       <button class="btn btn-sm btn-primary">Import</button>

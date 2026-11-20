@@ -1,4 +1,4 @@
-"""flask CLI commands: init-db, create-owner, reset-password, seed-demo."""
+"""flask CLI commands: init-db, create-owner, reset-password, vapid-keys, send-sunrise, seed-demo."""
 import random
 from datetime import date, timedelta
 from decimal import Decimal
@@ -50,6 +50,29 @@ def register(app):
         u.locked_until = None
         db.session.commit()
         click.echo("Password updated; the user is signed out everywhere.")
+
+    @app.cli.command("vapid-keys")
+    def vapid_keys():
+        """Print a new key pair for iPhone/browser notifications (add the lines to .env, then restart)."""
+        import base64
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import ec
+
+        def b64(b):
+            return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
+        key = ec.generate_private_key(ec.SECP256R1())
+        private = key.private_numbers().private_value.to_bytes(32, "big")
+        public = key.public_key().public_bytes(serialization.Encoding.X962,
+                                               serialization.PublicFormat.UncompressedPoint)
+        click.echo("VAPID_PUBLIC_KEY=" + b64(public))
+        click.echo("VAPID_PRIVATE_KEY=" + b64(private))
+
+    @app.cli.command("send-sunrise")
+    @click.option("--force", is_flag=True, help="Send even outside the morning window.")
+    def send_sunrise(force):
+        """Send the Sunrise notification to iPhones and browsers (a systemd timer runs this at 6 AM)."""
+        from .push import send_sunrise as run
+        click.echo(run(force=force))
 
     @app.cli.command("seed-demo")
     def seed_demo():

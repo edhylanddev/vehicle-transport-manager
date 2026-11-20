@@ -435,3 +435,23 @@ class Upload(db.Model):
     load_id = db.Column(db.Integer, db.ForeignKey("load.id"), index=True)
     uploaded_by_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+
+
+# ---------------------------------------------------------------- web push (iPhone / browser notifications)
+
+class PushSubscription(db.Model):
+    """One browser or home-screen app that asked for the Sunrise notification."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("company.id"), nullable=False, index=True)
+    endpoint = db.Column(db.String(700), nullable=False, unique=True)
+    p256dh = db.Column(db.String(200), nullable=False)
+    auth = db.Column(db.String(100), nullable=False)
+    device = db.Column(db.String(60))
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+    last_sent_on = db.Column(db.Date)
+
+    user = db.relationship("User")
+
+    def info(self):
+        return {"endpoint": self.endpoint, "keys": {"p256dh": self.p256dh, "auth": self.auth}}

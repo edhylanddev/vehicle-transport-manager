@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}iPhone app · {{ APP_NAME }}{% endblock %}
+{% macro body() %}
+<div class="card mx-auto my-4" style="max-width:560px"><div class="card-body p-4">
+  <div class="text-center mb-3">
+    <img src="{{ url_for('static', filename='img/apple-touch-icon.png') }}" alt="" width="72" height="72" class="rounded-4 mb-2">
+    <h1 class="h4 fw-bold mb-0">{{ APP_NAME }} on iPhone</h1>
+    <div class="text-muted small">Free · nothing to download from the App Store</div>
+    <a class="btn btn-sm btn-outline-primary mt-2" href="{{ url_for('main.videos', slug='install-iphone-app') }}"><i class="bi bi-play-btn"></i> Watch the 1-minute video</a>
+  </div>
+
+  <div id="iphone-installed" class="alert alert-success" hidden>
+    <i class="bi bi-check-circle-fill"></i> You're using the home-screen app. {% if current_user.is_authenticated and current_user.is_staff %}To get the 6 AM Sunrise notification, open <a href="{{ url_for('auth.account') }}">My account</a> and turn it on.{% endif %}
+  </div>
+
+  <div id="iphone-steps">
+  <div id="not-safari" class="alert alert-warning small" hidden>Open this page in <b>Safari</b> to add the app. Other browsers on iPhone may not offer <b>Add to Home Screen</b>.</div>
+  <h2 class="h6 fw-bold">Add it to your home screen (one time)</h2>
+  <ol class="ps-3">
+    <li class="mb-2">In <b>Safari</b>, open <b>{{ config.APP_URL.replace('https://', '') }}</b>.</li>
+    <li class="mb-2">Tap the <b>Share</b> button <i class="bi bi-box-arrow-up"></i>. It's at the bottom of the screen, or next to the address bar. If you don't see it, tap <b>⋯</b> first.</li>
+    <li class="mb-2">Scroll down and tap <b>Add to Home Screen</b> <i class="bi bi-plus-square"></i>. If you see an <b>Open as Web App</b> switch, leave it on.</li>
+    <li class="mb-2">Tap <b>Add</b>. A <b>VTM</b> icon appears on your home screen.</li>
+    <li class="mb-2">Open <b>VTM</b> from the home screen and sign in{% if config.ALLOW_SIGNUP %}, or tap <b>Create account</b> if you're new{% endif %}. You stay signed in.</li>
+  </ol>
+  <h2 class="h6 fw-bold mt-3">Morning notification (owners and office staff)</h2>
+  <p class="small">In the VTM app, go to <b>My account</b> and turn on <b>Sunrise report notification</b>, then tap <b>Allow</b>. Every morning at 6:00 you'll get a summary of yesterday's business. Needs iOS 16.4 or newer.</p>
+  </div>
+
+  <p class="small text-muted mb-0">Camera, photo uploads, signatures and location all work in the iPhone app. When the iPhone asks for the camera or location, tap <b>Allow</b>. Location is used to stamp where pickups and deliveries happen.
+    Have an Android phone? <a href="{{ url_for('main.app_download') }}">Get the Android app</a>.</p>
+</div></div>
+<script>
+  (function () {
+    var standalone = window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    if (standalone) {
+      document.getElementById("iphone-installed").hidden = false;
+      document.getElementById("iphone-steps").hidden = true;
+      return;
+    }
+    var ua = navigator.userAgent;
+    if (/iPhone|iPad|iPod/.test(ua) && /CriOS|FxiOS|EdgiOS|OPiOS|GSA\//.test(ua)) {
+      document.getElementById("not-safari").hidden = false;
+    }
+  })();
+</script>
+{% endmacro %}
+{% block content %}{{ body() }}{% endblock %}
+{% block public %}
+<nav class="navbar bg-white border-bottom"><div class="container">
+  <a class="navbar-brand fw-bold text-brand" href="/"><i class="bi bi-truck-front-fill text-warning"></i> {{ APP_NAME }}</a>
+  <a class="btn btn-primary btn-sm" href="{{ url_for('auth.login') }}">Sign in</a></div></nav>
+<div class="container">{{ body() }}</div>
+{% endblock %}

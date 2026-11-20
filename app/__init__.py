@@ -42,9 +42,9 @@ def create_app(env=None):
         return None
 
     from .blueprints import (admin, auth, main, loads, inspections, customers, expenses, team, trucks, reports,
-                             settings)
+                             settings, push)
     for bp in (auth.bp, main.bp, loads.bp, inspections.bp, customers.bp, expenses.bp,
-               team.bp, trucks.bp, reports.bp, settings.bp, admin.bp):
+               team.bp, trucks.bp, reports.bp, settings.bp, admin.bp, push.bp):
         app.register_blueprint(bp)
 
     from . import filters
@@ -62,6 +62,7 @@ def create_app(env=None):
             "IS_SUPERADMIN": is_superadmin(current_user),
             "APP_NAME": app.config["APP_NAME"],
             "IN_ANDROID_APP": "VTMApp/" in ua,
+            "ON_IOS": any(k in ua for k in ("iPhone", "iPad", "iPod")),
         }
 
     @app.after_request

@@ -55,6 +55,12 @@ class Config:
     # Comma-separated emails that can see /admin (every company that has signed up)
     SUPERADMIN_EMAILS = [e.strip().lower() for e in os.environ.get("SUPERADMIN_EMAILS", "").split(",") if e.strip()]
 
+    # Web push (iPhone / browser notifications for the 6 AM Sunrise report). Generate with: flask vapid-keys
+    VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "").strip()
+    VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "").strip()
+    VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "").strip() or APP_URL
+    SUNRISE_HOUR = int(os.environ.get("SUNRISE_HOUR", "6"))
+
     LOGIN_MAX_ATTEMPTS = int(os.environ.get("LOGIN_MAX_ATTEMPTS", "8"))
     LOGIN_LOCK_MINUTES = int(os.environ.get("LOGIN_LOCK_MINUTES", "15"))
 

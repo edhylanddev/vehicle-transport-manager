@@ -1,0 +1,11 @@
+# /etc/systemd/system/vtm-sunrise.timer
+[Unit]
+Description=Sunrise notifications at 6:00 AM (and again at 6:30 / 7:00 for any that didn't go out)
+
+[Timer]
+OnCalendar=*-*-* 06:00,30:00 America/New_York
+OnCalendar=*-*-* 07:00:00 America/New_York
+Persistent=true
+
+[Install]
+WantedBy=timers.target
