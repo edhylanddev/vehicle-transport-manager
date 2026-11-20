@@ -10,3 +10,11 @@ android/app/build/
 android/local.properties
 *.jks
 *.keystore
+
+# hidden files from the vtm service account home folder (/opt/vtm)
+.cache/
+.lesshst
+.bash_history
+.ssh/
+.config/
+.local/
