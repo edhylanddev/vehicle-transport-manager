@@ -135,7 +135,8 @@ def dashboard():
 # --- SEO: sitemap.xml and robots.txt (public pages only; everything else needs a login) ---
 from flask import Response as _SeoResponse
 
-PUBLIC_PAGES = ["/", "/signup"]
+PUBLIC_PAGES = ["/", "/signup", "/app", "/iphone", "/videos", "/videos/install-android-app",
+                "/videos/install-iphone-app", "/videos/central-dispatch-import"]  # add new public pages here
 SITE = "https://vehicletransport.autos"
 
 
@@ -150,3 +151,46 @@ def sitemap_xml():
 @bp.route("/robots.txt")
 def robots_txt():
     return _SeoResponse(f"User-agent: *\nAllow: /\n\nSitemap: {SITE}/sitemap.xml\n", mimetype="text/plain")
+
+
+# --- SEO: title and description for each public page (shown in Google results and link previews) ---
+from flask import request as _seo_request
+
+SEO_PAGES = {
+    "/": ("Car Hauling Dispatch App · Vehicle Transport Manager",
+          "Dispatch loads, run photo condition reports with e-signatures, send BOLs and invoices, and see profit "
+          "and cost per mile, all from your phone."),
+    "/signup": ("Create Your Free Account · Vehicle Transport Manager",
+                "Create a free Vehicle Transport Manager account and start dispatching loads, inspecting vehicles and "
+                "invoicing customers from your phone."),
+    "/login": ("Sign In · Vehicle Transport Manager",
+               "Sign in to Vehicle Transport Manager to manage your loads, drivers, inspections and invoices."),
+    "/app": ("Android App for Car Haulers · Vehicle Transport Manager",
+             "Download the Vehicle Transport Manager Android app: drivers run pickup and delivery inspections, capture "
+             "signatures and log expenses on the road."),
+    "/iphone": ("iPhone App for Car Haulers · Vehicle Transport Manager",
+                "Add Vehicle Transport Manager to your iPhone home screen and run inspections, capture signatures and "
+                "manage loads from Safari. No App Store needed."),
+    "/videos": ("How-To Videos · Vehicle Transport Manager",
+                "Short how-to videos for Vehicle Transport Manager: installing the Android and iPhone apps and importing "
+                "loads from Central Dispatch."),
+    "/videos/install-android-app": ("How to Install the Android App · Vehicle Transport Manager",
+                                    "Step-by-step video: download and install the Vehicle Transport Manager Android "
+                                    "app, then sign in and get your drivers set up."),
+    "/videos/install-iphone-app": ("How to Install the iPhone App · Vehicle Transport Manager",
+                                   "Step-by-step video: add Vehicle Transport Manager to your iPhone home screen from "
+                                   "Safari and sign in. No App Store download needed."),
+    "/videos/central-dispatch-import": ("Import Central Dispatch Loads · Vehicle Transport Manager",
+                                        "Watch how to import a Central Dispatch load order into Vehicle Transport "
+                                        "Manager so the new load fills in automatically."),
+}
+SEO_NOINDEX = {"/login"}
+
+
+@bp.app_context_processor
+def _seo_page():
+    page = SEO_PAGES.get(_seo_request.path)
+    if not page:
+        return {"seo_page": None}
+    return {"seo_page": {"title": page[0], "description": page[1], "url": SITE + _seo_request.path,
+                         "noindex": _seo_request.path in SEO_NOINDEX, "home": _seo_request.path == "/"}}
